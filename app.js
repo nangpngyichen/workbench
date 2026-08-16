@@ -9,7 +9,24 @@
 const PREFIX='wb_';
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
-function load(key,def){ try{const v=localStorage.getItem(PREFIX+key);return v?JSON.parse(v):def;}catch(e){return def;} }
+function load(key,def){
+  try{
+    const v=localStorage.getItem(PREFIX+key);
+    if(!v) return def;
+    const parsed=JSON.parse(v);
+    // 若旧备份数据形状与当前不兼容（应为数组却是对象/字符串，或应为对象却是数组/字符串），
+    // 直接退回安全默认值，避免后续 .filter/.push 等抛错导致整个模块无法录入。
+    if(def!==undefined && def!==null){
+      const defArr=Array.isArray(def);
+      const defObj=!defArr && typeof def==='object';
+      if(defArr && !Array.isArray(parsed)) return def;
+      if(defObj && (parsed===null || typeof parsed!=='object' || Array.isArray(parsed))) return def;
+    }
+    return parsed;
+  }catch(e){ return def; }
+}
+function asArr(x){ return Array.isArray(x)?x:[]; }
+function asObj(x){ return (x&&typeof x==='object'&&!Array.isArray(x))?x:{}; }
 function save(key,val){
   try{ localStorage.setItem(PREFIX+key,JSON.stringify(val)); }
   catch(e){ toast('⚠️ 本地存储空间不足，本次数据可能未保存，请删除部分旧图片或记录后重试'); }
@@ -1122,7 +1139,7 @@ function depMonthlySub(arr){
 function ledgerMonthInManual(arr,month){return (arr||[]).filter(e=>e.type==='in'&&!e.src&&e.date&&e.date.startsWith(month)).reduce((s,e)=>s+num(e.amount),0);}
 // 把工资分配的储蓄金额同步写回「我的存款·每月存款」台账（带 src:'alloc' 标记，按月唯一，不会重复累加）
 function setAllocSavingToLedger(month,amount){
-  const d=load('deposits',{});d.monthly=d.monthly||[];
+  const d=load('deposits',{});d.monthly=asArr(d.monthly);
   d.monthly=d.monthly.filter(e=>!(e.src==='alloc'&&e.date&&e.date.startsWith(month)));
   const amt=num(amount);
   if(amt>0)d.monthly.push({id:uid(),date:month+'-01',type:'in',amount:amt,note:'工资分配·储蓄(自动同步)',src:'alloc'});
@@ -1182,8 +1199,8 @@ function renderDepCal(){
   // 汇总四个台账每日存取金额，在日历上直接体现
   const dayMap={};
   const dep=load('deposits',{});
-  DEP_LEDGERS.forEach(([key])=>{
-    (dep[key]||[]).forEach(e=>{
+    DEP_LEDGERS.forEach(([key])=>{
+      asArr(dep[key]).forEach(e=>{
       if(!e.date)return;
       const d=dayMap[e.date]||={in:0,out:0};
       if(e.type==='in')d.in+=num(e.amount);else d.out+=num(e.amount);
@@ -1215,7 +1232,7 @@ function renderDepDayDetail(date){
   const dep=load('deposits',{});
   const all=[];
   DEP_LEDGERS.forEach(([key,name])=>{
-    (dep[key]||[]).filter(e=>e.date===date).forEach(e=>{
+    asArr(dep[key]).filter(e=>e.date===date).forEach(e=>{
       const subname=(key==='monthly'&&e.sub)?((DEP_MONTHLY_SUBS.find(([k])=>k===e.sub)||[])[1]||''):'';
       all.push(Object.assign({},e,{lkey:key,lname:name,subname}));
     });
@@ -1239,7 +1256,7 @@ function renderDepositSummary(){
   let totalIn=0,totalOut=0,totalBal=0;
   const dep=load('deposits',{});
   const totals=DEP_LEDGERS.map(([key,name])=>{
-    const arr=dep[key]||[];
+    const arr=asArr(dep[key]);
     const b=ledgerBalance(arr);
     const tin=ledgerTotalIn(arr),tout=ledgerTotalOut(arr);
     totalIn+=tin;totalOut+=tout;totalBal+=b;
@@ -1276,7 +1293,7 @@ function bindDeposit(){
     const key=$('#depLedgerSel').value;
     const vIn=num(form.in.value),vOut=num(form.out.value);
     if(vIn<=0&&vOut<=0){toast('请输入存入或取出金额');return;}
-    const d=load('deposits',{});d[key]=d[key]||[];
+    const d=load('deposits',{});d[key]=asArr(d[key]);
     const recDate=depCal.sel;
     const subObj=(key==='monthly'&&form.sub)?{sub:form.sub.value}:{};
     if(vIn>0)d[key].push(Object.assign({id:uid(),date:recDate,type:'in',amount:vIn,note:form.note.value},subObj));
@@ -1304,7 +1321,7 @@ function renderDepositList(){
   // 汇总四个台账的全部记录，并标注所属台账（每月存款再标注现金/支付宝）
   const all=[];
   DEP_LEDGERS.forEach(([key,name])=>{
-    (dep[key]||[]).forEach(e=>{
+    asArr(dep[key]).forEach(e=>{
       const subname=(key==='monthly'&&e.sub)?((DEP_MONTHLY_SUBS.find(([k])=>k===e.sub)||[])[1]||''):'';
       all.push(Object.assign({},e,{lkey:key,lname:name,subname}));
     });
@@ -1456,7 +1473,7 @@ let yhLedger='monthly';
 function migrateYihao(){
   const old=load('yihao',null);
   if(old===null)return;
-  const dep=load('yihaoDep',{})||{};dep.monthly=dep.monthly||[];
+  const dep=load('yihaoDep',{})||{};dep.monthly=asArr(dep.monthly);
   if(Array.isArray(old)){
     old.forEach(r=>{
       const note=r.note||'';const m=(r.month||ym(new Date()))+'-01';
@@ -1467,9 +1484,9 @@ function migrateYihao(){
   save('yihaoDep',dep);
   try{localStorage.removeItem(PREFIX+'yihao');}catch(e){}
 }
-function getYihaoArr(){ migrateYihao(); const d=load('yihaoDep',{})||{}; return d[yhLedger]||[]; }
+function getYihaoArr(){ migrateYihao(); const d=load('yihaoDep',{})||{}; return asArr(d[yhLedger]); }
 function yhSaveArr(arr){ const d=load('yihaoDep',{})||{}; d[yhLedger]=arr; save('yihaoDep',d); }
-function getAllYihaoArr(){ migrateYihao(); const d=load('yihaoDep',{})||{}; return YH_LEDGERS.reduce((a,[k])=>a.concat((d[k]||[]).map(e=>Object.assign({ledger:k},e))),[]); }
+function getAllYihaoArr(){ migrateYihao(); const d=load('yihaoDep',{})||{}; return YH_LEDGERS.reduce((a,[k])=>a.concat(asArr(d[k]).map(e=>Object.assign({ledger:k},e))),[]); }
 function renderYihao(){
   return topbar('易豪存款','每一笔都清清楚楚', 'yihao')+`
   <div class="card">
