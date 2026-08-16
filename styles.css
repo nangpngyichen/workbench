@@ -127,6 +127,12 @@ input,select{font-family:inherit;}
 .card h3{font-size:13px;margin:12px 0 8px;font-weight:400;}
 .card .hint{font-size:11px;opacity:.7;margin:4px 0 0;}
 .card .note{font-size:11px;color:var(--danger);margin-top:6px;}
+
+/* 数据备份卡片 */
+.backup-card{background:linear-gradient(135deg,#fff,#fff6fa);}
+.backup-text-wrap{margin:10px 0 8px;}
+.backup-text{width:100%;height:120px;resize:vertical;box-sizing:border-box;border:1.5px solid var(--sub);border-radius:14px;padding:10px;font-size:11px;line-height:1.5;font-family:ui-monospace,Menlo,Consolas,monospace;background:#fff;color:var(--text);}
+.backup-text:focus{outline:none;border-color:var(--pink);}
 .grp-title{margin:14px 0 8px;font-size:14px;font-weight:500;color:var(--pink);
   padding-left:10px;border-left:4px solid var(--sub);letter-spacing:.5px;}
 
