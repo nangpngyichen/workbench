@@ -5,18 +5,19 @@
    - 只缓存「成功(200)」的响应，绝不缓存错误页 / 空白页，避免手机端白屏。
    - 图标等静态资源：缓存优先（几乎不变，省流量），同样只缓存 200。
    - 缓存版本号：每次大改请 +1，强制旧缓存失效。 */
-const CACHE = 'workbench-v61';
-const SHELL = ['/', '/index.html', '/app.js', '/styles.css', '/manifest.webmanifest'];
+const CACHE = 'workbench-v62';
+// 相对路径：兼容 GitHub Pages 子路径（/workbench/）部署，避免预缓存 404
+const SHELL = ['./', './index.html', './app.js', './styles.css', './manifest.webmanifest'];
 const ICONS = [
-  '/assets/icons/icon1.png',
-  '/assets/icons/icon2.png',
-  '/assets/icons/icon3.png',
-  '/assets/icons/icon4.png',
-  '/assets/icons/icon5.png',
-  '/assets/icons/icon6.png',
-  '/assets/icons/icon7.png',
-  '/assets/icons/app-icon-192.png',
-  '/assets/icons/app-icon-512.png'
+  './assets/icons/icon1.png',
+  './assets/icons/icon2.png',
+  './assets/icons/icon3.png',
+  './assets/icons/icon4.png',
+  './assets/icons/icon5.png',
+  './assets/icons/icon6.png',
+  './assets/icons/icon7.png',
+  './assets/icons/app-icon-192.png',
+  './assets/icons/app-icon-512.png'
 ];
 
 // 只缓存成功且非跨域(opaque)的响应，防止把错误/空白页存进缓存导致白屏
@@ -56,10 +57,9 @@ self.addEventListener('fetch', (e) => {
       fetch(req).then((resp) => {
         caches.open(CACHE).then((c) => cachePut(c, './index.html', resp));
         return resp;
-      }).catch(() =>
+      }      ).catch(() =>
         caches.match('./index.html')
-          .then((r) => r || caches.match('/index.html'))
-          .then((r) => r || caches.match('/'))
+          .then((r) => r || caches.match('./'))
       )
     );
     return;
