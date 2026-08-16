@@ -255,6 +255,23 @@ function renderHome(){
       <div class="ov-row"><span>持有黄金(总克数)</span><b>${pF(goldG)} 克</b></div>
       <div class="ov-row" style="border-top:2px solid var(--sub);margin-top:4px;padding-top:8px;"><span>资产总计</span><b style="color:#E86A92">¥${money(assetTotal)}</b></div>
     </div>
+  </div>
+
+  <div class="card backup-card">
+    <h2>📦 数据备份与迁移</h2>
+    <p class="hint">换手机、或换了网址（比如从旧链接搬到 GitHub 这个新地址）时，用下面的按钮把数据搬过来。数据只存在你手机本地，不会上传到任何服务器。</p>
+    <div class="row2">
+      <button class="btn" id="exportBtn" type="button">💾 导出备份</button>
+      <button class="btn ghost" id="importBtn" type="button">📂 导入文件</button>
+    </div>
+    <div class="backup-text-wrap">
+      <textarea id="backupText" class="backup-text" placeholder="点「导出备份」会在这里生成文本；也可把旧备份文本粘贴到这里，再点「从文本导入」"></textarea>
+    </div>
+    <div class="row2">
+      <button class="btn ghost sm" id="importTextBtn" type="button">📋 从文本导入</button>
+      <button class="btn ghost sm" id="copyBackupBtn" type="button">📑 复制文本</button>
+    </div>
+    <input type="file" id="importFile" accept=".txt,.json,application/json,text/plain" hidden>
   </div>`;
 }
 
@@ -1651,12 +1668,15 @@ function exportBackup(){
     const k=localStorage.key(i);
     if(k&&k.startsWith(PREFIX))data[k]=localStorage.getItem(k);
   }
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'text/plain'});
+  const json=JSON.stringify(data,null,2);
+  const ta=$('#backupText'); if(ta){ta.value=json; ta.scrollTop=0;}
+  const blob=new Blob([json],{type:'text/plain'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='工作台备份_'+ymd()+'.txt';
-  a.click();
-  toast('备份已导出 💾');
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(e){}},2000);
+  toast('已生成备份，可下载或复制文本 💾');
 }
 
 function importBackup(file){
@@ -1664,6 +1684,7 @@ function importBackup(file){
   reader.onload=()=>{
     try{
       const data=JSON.parse(reader.result);
+      if(typeof data!=='object'||!data)throw 0;
       let n=0;
       for(const k in data){
         if(k.startsWith(PREFIX)){localStorage.setItem(k,data[k]);n++;}
@@ -1674,6 +1695,35 @@ function importBackup(file){
     }catch(e){toast('文件格式错误，请选择导出的备份');}
   };
   reader.readAsText(file);
+}
+
+function importBackupText(){
+  const ta=$('#backupText');
+  if(!ta||!ta.value.trim()){toast('请先把旧备份文本粘贴到框里');return;}
+  try{
+    const data=JSON.parse(ta.value.trim());
+    if(typeof data!=='object'||!data)throw 0;
+    let n=0;
+    for(const k in data){ if(k.startsWith(PREFIX)){localStorage.setItem(k,data[k]);n++;} }
+    if(n===0){toast('未找到工作台数据');return;}
+    toast('已恢复 '+n+' 条记录 💕');
+    render();
+  }catch(e){ toast('文本格式错误，请粘贴完整的备份文本'); }
+}
+
+function copyBackup(){
+  const ta=$('#backupText');
+  if(!ta||!ta.value.trim()){toast('请先点「导出备份」生成文本');return;}
+  ta.focus(); ta.select();
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).then(()=>toast('已复制，去新链接粘贴吧 💕'),()=>fallbackCopy(ta));
+    } else fallbackCopy(ta);
+  }catch(e){ fallbackCopy(ta); }
+}
+function fallbackCopy(ta){
+  try{ ta.setSelectionRange(0,ta.value.length); document.execCommand('copy'); toast('已复制 💕'); }
+  catch(e){ toast('复制失败，请手动长按文本选择复制'); }
 }
 
 /* =========================================================
@@ -1701,11 +1751,12 @@ function render(){
     // 重新渲染当前页以反映模式
     const page=ms.dataset.page;render();
   });}
-  // 导出
+  // 导出 / 导入 备份
   const eb=$('#exportBtn');if(eb)eb.addEventListener('click',exportBackup);
-  // 导入
   const ib=$('#importBtn');if(ib)ib.addEventListener('click',()=>{const fi=$('#importFile');if(fi)fi.click();});
   const fi=$('#importFile');if(fi)fi.addEventListener('change',e=>{if(e.target.files&&e.target.files[0])importBackup(e.target.files[0]);e.target.value='';});
+  const itb=$('#importTextBtn');if(itb)itb.addEventListener('click',importBackupText);
+  const cb=$('#copyBackupBtn');if(cb)cb.addEventListener('click',copyBackup);
   if(bind)bind();
   // 更新导航高亮
   $$('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===currentPage));
