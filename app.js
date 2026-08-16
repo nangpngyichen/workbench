@@ -262,7 +262,7 @@ function renderHome(){
     <p class="hint">换手机、或换了网址（比如从旧链接搬到 GitHub 这个新地址）时，用下面的按钮把数据搬过来。数据只存在你手机本地，不会上传到任何服务器。</p>
     <div class="row2">
       <button class="btn" id="exportBtn" type="button">💾 导出备份</button>
-      <button class="btn ghost" id="importBtn" type="button">📂 导入文件</button>
+      <label class="btn ghost" for="homeImportFile">📂 导入文件</label>
     </div>
     <div class="backup-text-wrap">
       <textarea id="backupText" class="backup-text" placeholder="点「导出备份」会在这里生成文本；也可把旧备份文本粘贴到这里，再点「从文本导入」"></textarea>
@@ -271,7 +271,7 @@ function renderHome(){
       <button class="btn ghost sm" id="importTextBtn" type="button">📋 从文本导入</button>
       <button class="btn ghost sm" id="copyBackupBtn" type="button">📑 复制文本</button>
     </div>
-    <input type="file" id="importFile" accept=".txt,.json,application/json,text/plain" hidden>
+    <input type="file" id="homeImportFile" class="backup-file" accept=".txt,.json,application/json,text/plain">
   </div>`;
 }
 
@@ -1755,6 +1755,7 @@ function render(){
   const eb=$('#exportBtn');if(eb)eb.addEventListener('click',exportBackup);
   const ib=$('#importBtn');if(ib)ib.addEventListener('click',()=>{const fi=$('#importFile');if(fi)fi.click();});
   const fi=$('#importFile');if(fi)fi.addEventListener('change',e=>{if(e.target.files&&e.target.files[0])importBackup(e.target.files[0]);e.target.value='';});
+  const hfi=$('#homeImportFile');if(hfi)hfi.addEventListener('change',e=>{if(e.target.files&&e.target.files[0])importBackup(e.target.files[0]);e.target.value='';});
   const itb=$('#importTextBtn');if(itb)itb.addEventListener('click',importBackupText);
   const cb=$('#copyBackupBtn');if(cb)cb.addEventListener('click',copyBackup);
   if(bind)bind();
