@@ -1,0 +1,331 @@
+/* ===== 淡粉色可爱少女风 · 移动端工作台 ===== */
+:root{
+  --main:#FFE6EF;      /* 主色调 */
+  --sub:#FFC8DD;       /* 辅助色 */
+  --text:#442233;      /* 文字主色 */
+  --bg:#FFF3F8;        /* 背景底色 */
+  --card:#FFE6EF;      /* 卡片背景 */
+  --radius:16px;       /* 大圆角 */
+  --shadow:0 6px 18px rgba(255,140,180,.18);
+  --shadow-soft:0 3px 10px rgba(255,140,180,.14);
+  --blue:#A7C7E7;      /* 史迪奇蓝 */
+  --pink:#FF9EC4;      /* 安琪粉 */
+  --danger:#E86A92;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  font-size:14px;
+  line-height:1.5;
+  /* 仅手机端：限制最大宽度并居中，禁止PC大屏布局 */
+  max-width:480px;
+  margin:0 auto;
+  min-height:100vh;
+}
+button{font-family:inherit;cursor:pointer;}
+input,select{font-family:inherit;}
+
+/* ===== 整体布局：左侧固定导航 + 右侧内容 ===== */
+.app{display:flex;max-width:480px;margin:0 auto;min-height:100vh;position:relative;padding-left:74px;}
+
+/* 左侧纵向导航栏：固定悬浮，不随右侧内容滚动（position:fixed 真正锁死） */
+.sidebar{
+  position:fixed;
+  top:0;
+  bottom:0;
+  left:0;
+  width:74px;
+  background:linear-gradient(180deg,#FFD3E6,#FFE6EF);
+  box-shadow:2px 0 12px rgba(255,140,180,.20);
+  display:flex;flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  padding:6px 4px;
+  z-index:30;
+  overflow-y:auto;
+}
+/* 品牌 + 菜单作为一个整体：从顶部贴合排列，模块间留舒适间距 */
+.sidebar .nav-list{
+  width:100%;
+  display:flex;flex-direction:column;
+  align-items:center;
+  gap:10px;
+}
+/* 桌面/宽屏预览时，让固定栏对齐到居中 480 容器的最左缘 */
+@media(min-width:481px){
+  .sidebar{left:calc((100vw - 480px) / 2);}
+}
+.sidebar .brand{
+  font-size:11px;font-weight:400;color:var(--text);
+  margin:0 0 4px;text-align:center;line-height:1.2;
+  cursor:pointer;border-radius:12px;padding:4px 2px;transition:.15s;
+}
+.sidebar .brand:active{transform:scale(.94);background:rgba(255,255,255,.5);}
+.nav-item{
+  width:100%;
+  display:flex;flex-direction:column;align-items:center;
+  gap:2px;padding:8px 2px;margin:3px 0;
+  border:none;background:transparent;border-radius:14px;
+  color:var(--text);transition:.18s;
+}
+.nav-item .ico{width:34px;height:34px;display:flex;align-items:center;justify-content:center;}
+.nav-item .ico svg{width:32px;height:32px;}
+.nav-item .nav-ico{width:36px;height:36px;object-fit:contain;display:block;}
+.nav-item .label{font-size:10px;line-height:1.15;text-align:center;font-weight:400;}
+.nav-item.active{background:#fff;box-shadow:var(--shadow-soft);}
+.nav-item:active{transform:scale(.94);}
+
+/* 右侧主内容 */
+.content{
+  flex:1;
+  min-width:0;
+  padding:12px 12px 28px;
+  min-height:100vh;
+}
+
+/* ===== 顶部栏 ===== */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:8px;margin-bottom:12px;
+}
+.topbar h1{font-size:17px;margin:0;font-weight:500;}
+.topbar .sub{font-size:11px;opacity:.7;}
+.backup-tip{flex-basis:100%;margin-top:6px;font-size:11px;line-height:1.45;color:var(--pink,#e86a92);opacity:.85;background:rgba(255,158,196,.12);border:1px solid var(--sub,#ffd6e7);border-radius:10px;padding:6px 9px;}
+
+/* 模式切换开关（分段控件） */
+.mode-switch{display:flex;background:#fff;border-radius:14px;padding:3px;box-shadow:var(--shadow-soft);}
+.mode-switch button{
+  border:none;background:transparent;border-radius:11px;
+  padding:6px 10px;font-size:11px;font-weight:400;color:var(--text);opacity:.65;
+}
+.mode-switch button.on{background:var(--sub);opacity:1;box-shadow:var(--shadow-soft);}
+.mode-switch button .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--pink);margin-right:4px;vertical-align:middle;}
+
+/* 易豪存款台账切换开关（更明显） */
+.ledger-switch{display:flex;background:#fff;border-radius:14px;padding:3px;box-shadow:var(--shadow-soft);}
+.ledger-switch button{
+  border:none;background:transparent;border-radius:11px;
+  padding:6px 10px;font-size:11px;font-weight:400;color:var(--text);opacity:.65;
+}
+.ledger-switch button.on{background:var(--pink);color:#fff;opacity:1;box-shadow:var(--shadow-soft);}
+
+/* ===== 卡片 ===== */
+.card{
+  background:var(--card);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:14px;
+  margin-bottom:14px;
+}
+.card h2{font-size:14px;margin:0 0 10px;font-weight:500;display:flex;align-items:center;gap:6px;}
+.col-h{cursor:pointer;user-select:none;}
+.col-h .chev{display:inline-block;margin-left:auto;font-size:11px;opacity:.6;transition:transform .2s;transform:rotate(0);}
+.col-h.open .chev{transform:rotate(180deg);}
+.card h3{font-size:13px;margin:12px 0 8px;font-weight:400;}
+.card .hint{font-size:11px;opacity:.7;margin:4px 0 0;}
+.card .note{font-size:11px;color:var(--danger);margin-top:6px;}
+.grp-title{margin:14px 0 8px;font-size:14px;font-weight:500;color:var(--pink);
+  padding-left:10px;border-left:4px solid var(--sub);letter-spacing:.5px;}
+
+/* ===== 表单 ===== */
+.field{margin-bottom:10px;}
+.field label{display:block;font-size:12px;font-weight:400;margin-bottom:4px;}
+input[type=number],input[type=date],input[type=text],select,textarea{
+  width:100%;
+  border:1.5px solid var(--sub);
+  background:#fff;
+  color:var(--text);
+  border-radius:var(--radius);
+  padding:10px 12px;
+  font-size:14px;
+  outline:none;
+  transition:.15s;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 0 3px rgba(255,158,196,.25);}
+.row2{display:flex;gap:8px;}
+.row2 .field{flex:1;}
+
+/* 日期组件粉色主题 */
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(48%) sepia(60%) saturate(600%) hue-rotate(300deg);}
+
+/* ===== 按钮 ===== */
+.btn{
+  border:none;border-radius:var(--radius);
+  padding:11px 16px;font-size:14px;font-weight:500;
+  background:linear-gradient(180deg,#FFB3D1,#FF8FB8);
+  color:#fff;box-shadow:var(--shadow-soft);
+  width:100%;transition:.15s;
+}
+.btn:active{transform:translateY(1px);}
+.btn.ghost{background:#fff;color:var(--text);border:1.5px solid var(--sub);}
+.btn.sm{width:auto;padding:8px 12px;font-size:12px;}
+.btn.row{display:inline-block;width:auto;}
+
+/* ===== 结果展示区 ===== */
+.result{
+  background:#fff;border-radius:var(--radius);
+  padding:12px;margin-top:6px;box-shadow:var(--shadow-soft);
+}
+.result .line{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px dashed rgba(255,158,196,.3);}
+.result .line:last-child{border-bottom:none;}
+.result .line b{font-weight:500;}
+.result .big{font-size:20px;font-weight:500;color:var(--danger);}
+/* 易豪存款总览：各台账明细紧凑排版（余额/存入/取出分两行右对齐，避免一行拥挤换行） */
+.yh-ledger-line{align-items:flex-start;padding:8px 0;}
+.yh-ledger-line .yh-name{font-size:13px;white-space:nowrap;padding-top:2px;min-width:3.5em;}
+.yh-ledger-detail{flex:1;display:flex;flex-direction:column;gap:4px;text-align:right;margin-left:12px;}
+.yh-ledger-detail .yh-row{display:flex;justify-content:flex-end;align-items:center;gap:8px;font-size:11px;}
+.yh-ledger-detail .yh-row span{white-space:nowrap;}
+.yh-ledger-detail .yh-row b{font-size:13px;font-weight:500;color:var(--text);}
+.yh-ledger-detail .yh-bal b{font-size:14px;color:var(--danger);}
+/* 我的存款总览：每月存款下的「现金 / 支付宝」细分小字（沿用易豪两行布局） */
+.dep-sub-row{font-size:10px;opacity:.8;gap:10px;padding-right:2px;}
+.dep-sub-row.other{opacity:.6;}
+.sub-result{margin:6px 0 2px;padding:8px 0 8px 12px;border-left:3px solid var(--sub);background:rgba(255,200,221,.22);border-radius:0 12px 12px 0;}
+.sub-result .line{font-size:12px;border-bottom:1px dotted rgba(255,158,196,.28);}
+.sub-result .line:last-child{border-bottom:none;font-weight:500;}
+.sub-result .line.sm{font-size:12px;opacity:.92;}
+.tag{display:inline-block;background:var(--sub);color:var(--text);border-radius:10px;padding:2px 8px;font-size:11px;font-weight:400;}
+
+/* ===== 列表 / 流水 ===== */
+.list{margin-top:8px;}
+.list .item{
+  background:#fff;border-radius:14px;padding:10px 12px;margin-bottom:8px;
+  box-shadow:var(--shadow-soft);font-size:13px;
+}
+.list .item .meta{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.list .item .amt{font-weight:500;}
+.list .item .amt.in{color:#2BA471;}
+.list .item .amt.out{color:var(--danger);}
+.list .item .del{background:#fff;border:1px solid var(--sub);color:var(--danger);border-radius:10px;font-size:11px;padding:3px 8px;font-weight:400;}
+/* 历史记录点击展开明细 */
+.list .item{cursor:pointer;transition:box-shadow .15s;}
+.list .item.open{box-shadow:0 8px 22px rgba(232,106,146,.18);}
+.list .item .chev{display:inline-block;margin-left:4px;font-size:10px;opacity:.5;transition:transform .2s;transform:rotate(0);}
+.list .item.open .chev{transform:rotate(180deg);}
+.rec-detail{margin-top:8px;padding:10px 12px;background:#FFF0F6;border:1px solid #FFD6E6;border-radius:12px;}
+.rec-detail .dline{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px;border-bottom:1px dashed rgba(255,158,196,.28);}
+.rec-detail .dline:last-child{border-bottom:none;}
+.rec-detail .dlabel{opacity:.75;}
+.rec-detail .dval{font-weight:500;color:var(--text);}
+.list .item .view{display:inline-block;margin-left:6px;font-size:10px;font-weight:400;color:var(--danger);opacity:.85;}
+.empty{text-align:center;opacity:.55;font-size:12px;padding:14px 0;}
+
+/* ===== 按月份折叠分组（存款/易豪历史流水） ===== */
+.mgroup{background:#fff;border-radius:14px;margin-bottom:8px;box-shadow:var(--shadow-soft);overflow:hidden;}
+.mgroup-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none;font-weight:500;transition:background .12s;}
+.mgroup-head:active{background:rgba(255,158,196,.08);}
+.mgroup-head .mgroup-title{font-size:13px;}
+.mgroup-head .mgroup-sum{font-size:11px;opacity:.85;display:flex;align-items:center;gap:4px;font-weight:400;}
+.mgroup-head .mgroup-sum .chev{display:inline-block;font-size:10px;opacity:.5;transition:transform .2s;}
+.mgroup.open .mgroup-head .mgroup-sum .chev{transform:rotate(180deg);}
+.mgroup-body{padding:0 10px 10px;}
+.mgroup-body .item{margin-bottom:8px;}
+.mgroup-body .item:last-child{margin-bottom:0;}
+/* 每月四台账存入/取出汇总 */
+.month-sum{background:#FFF6FA;border:1px solid #FFD6E6;border-radius:12px;padding:8px 10px;margin-bottom:8px;}
+.sum-row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;padding:3px 0;}
+.sum-row.total{margin-top:4px;padding-top:6px;border-top:1px dashed rgba(255,158,196,.4);font-weight:500;}
+/* 每月存款细分：现金 / 支付宝 子行 */
+.sum-sub{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;opacity:.85;padding:2px 0 2px 12px;}
+.sum-sub.other{opacity:.7;font-style:italic;}
+
+/* ===== 表格（排班日历） ===== */
+.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:11px;}
+.tbl th{background:var(--sub);color:var(--text);padding:6px 4px;font-weight:500;position:sticky;top:0;}
+.tbl td{padding:4px;background:#fff;}
+.tbl td input,.tbl td select{padding:6px 4px;font-size:11px;border-radius:10px;}
+.tbl tr:nth-child(even) td{background:#FFF0F6;}
+
+/* ===== 首页概览卡片 ===== */
+.overview-grid{display:flex;flex-direction:column;gap:12px;}
+.ov-card{
+  background:#fff;border-radius:var(--radius);padding:14px;
+  box-shadow:var(--shadow);border-left:6px solid var(--pink);
+}
+.ov-card .title{font-size:12px;font-weight:500;opacity:.8;margin-bottom:6px;}
+.ov-card .val{font-size:22px;font-weight:500;color:var(--danger);}
+.ov-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dashed rgba(255,158,196,.3);}
+.ov-row:last-child{border-bottom:none;}
+.ov-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.ov-mini{background:var(--main);border-radius:14px;padding:10px;}
+.ov-mini .t{font-size:11px;opacity:.75;}
+.ov-mini .v{font-size:16px;font-weight:500;margin-top:2px;}
+
+/* 顶部分段标题 */
+.section-title{font-size:13px;font-weight:500;margin:14px 0 8px;display:flex;align-items:center;gap:6px;}
+
+/* 全局提示（粉色文字） */
+.warn-text{color:var(--danger);font-weight:500;font-size:12px;margin-top:6px;}
+
+/* 滚动条隐藏（移动端） */
+.sidebar::-webkit-scrollbar{display:none;}
+
+/* ===== 月视图日历（排班） ===== */
+.cal{margin-top:4px;}
+.cal-head{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;font-weight:500;opacity:.7;margin-bottom:5px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+.cal-cell{border-radius:12px;background:#fff;min-height:48px;padding:4px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:var(--shadow-soft);}
+.cal-cell.empty{background:transparent;box-shadow:none;}
+.cal-cell .dnum{font-size:12px;font-weight:500;}
+.cal-cell .stag{font-size:9px;line-height:1.15;border-radius:8px;padding:1px 2px;text-align:center;color:var(--text);}
+.cal-cell .stag.ph{opacity:.35;background:#fff;}
+.cal-cell:active{transform:scale(.96);}
+
+/* 弹窗 sheet（排班选班次） */
+.sheet{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;}
+.sheet[hidden]{display:none;}
+.sheet-mask{position:absolute;inset:0;background:rgba(68,34,51,.35);}
+.sheet-panel{position:relative;width:100%;max-width:480px;background:var(--card);border-radius:22px 22px 0 0;padding:18px 16px 24px;box-shadow:0 -6px 22px rgba(0,0,0,.18);}
+.sheet-title{font-weight:500;margin-bottom:10px;font-size:15px;}
+.sheet-panel select{margin-bottom:12px;}
+.sheet-panel .btn{margin-top:6px;}
+
+/* ===== 工作量日历（点选日期填写，wlcal 前缀避免与排班日历冲突） ===== */
+.cal-wrap{background:#fff;border:1px solid var(--sub);border-radius:12px;padding:7px;margin-bottom:8px;}
+.wlcal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;color:var(--text);}
+.wlcal-nav{width:24px;height:24px;border:none;border-radius:50%;background:var(--pink);color:#fff;font-size:14px;font-weight:500;cursor:pointer;line-height:1;flex:0 0 auto;transition:.12s;}
+.wlcal-nav:active{transform:scale(.9);}
+.wlcal-month{font-size:12px;font-weight:500;min-width:72px;text-align:center;}
+.wlcal-sub{display:flex;justify-content:space-between;align-items:center;font-size:10px;opacity:.7;margin:4px 0 5px;}
+.wlcal-sel{background:var(--pink);color:#fff;border-radius:10px;padding:2px 6px;font-size:11px;}
+.wlcal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.wlcal-h{text-align:center;font-size:9px;color:#b98aa0;font-weight:400;padding:1px 0 2px;}
+.wlcal-cell{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;font-size:11px;padding:3px 1px 1px;border-radius:8px;color:var(--text);background:var(--bg);transition:.12s;min-height:32px;}
+.wlcal-cell.empty{background:transparent;}
+.wlcal-cell:not(.empty):active{transform:scale(.92);}
+.wlcal-cell.has{background:#FFE0EC;font-weight:400;}
+.wlcal-cell.sel{background:var(--pink);color:#fff;font-weight:500;box-shadow:var(--shadow-soft);}
+.wlcal-cell.sel .cal-in,.wlcal-cell.sel .cal-out{color:#fff;}
+.cal-day{line-height:1.1;margin-bottom:1px;}
+.cal-amts{display:flex;flex-direction:column;align-items:center;gap:1px;width:100%;}
+.cal-in,.cal-out{font-size:6px;line-height:1.1;padding:1px 2px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.cal-in{color:#2BA471;background:rgba(43,164,113,.10);}
+.cal-out{color:#E86A92;background:rgba(232,106,146,.10);}
+.day-rec-title{font-size:12px;color:#b98aa0;margin-bottom:6px;padding-top:4px;border-top:1px dashed var(--sub);}
+.day-rec{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;background:var(--bg);margin-bottom:6px;font-size:12px;}
+.day-rec-tag{background:var(--sub);color:var(--text);padding:2px 6px;border-radius:8px;white-space:nowrap;}
+.day-rec-amt{flex:1;text-align:right;}
+.day-rec-amt.in{color:#2BA471;}
+.day-rec-amt.out{color:#E86A92;}
+.day-rec .del{font-size:11px;padding:3px 8px;}
+
+/* ===== 工资凭证图片上传 ===== */
+#salImgInput{display:block;width:100%;margin-bottom:10px;font-size:13px;color:var(--text);}
+.sal-img-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.sal-img-thumb{position:relative;border-radius:12px;overflow:hidden;background:var(--bg);border:1px solid var(--sub);aspect-ratio:1/1;}
+.sal-img-thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer;}
+.sal-img-thumb .sal-img-x{position:absolute;top:3px;right:3px;width:22px;height:22px;border:none;border-radius:50%;background:rgba(232,106,146,.92);color:#fff;font-size:14px;font-weight:500;line-height:1;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.sal-img-thumb .sal-img-x:active{transform:scale(.9);}
+.detail-imgs{margin-top:6px;}
+.detail-imgs .sal-img-thumb{aspect-ratio:auto;}
+.detail-imgs .sal-img-thumb img{max-height:120px;object-fit:contain;background:#fff;}
+.img-lightbox{position:fixed;inset:0;z-index:99;display:none;align-items:center;justify-content:center;background:rgba(40,20,30,.92);padding:16px;overflow:auto;-webkit-overflow-scrolling:touch;}
+.img-lightbox.show{display:flex;}
+.img-lightbox img{max-width:100%;max-height:100%;border-radius:12px;box-shadow:0 6px 30px rgba(0,0,0,.5);cursor:zoom-in;touch-action:auto;display:block;margin:auto;}
+.img-lightbox img.zoomed{max-width:none;max-height:none;width:auto;height:auto;cursor:zoom-out;}
+.img-lightbox .img-lb-close{position:fixed;top:14px;right:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.92);color:#444;font-size:22px;font-weight:500;display:flex;align-items:center;justify-content:center;z-index:101;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;}
+.img-lightbox .img-lb-hint{position:fixed;bottom:14px;left:0;right:0;text-align:center;color:#fff;font-size:11px;opacity:.8;z-index:101;pointer-events:none;}
