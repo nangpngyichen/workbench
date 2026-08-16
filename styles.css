@@ -133,6 +133,7 @@ input,select{font-family:inherit;}
 .backup-text-wrap{margin:10px 0 8px;}
 .backup-text{width:100%;height:120px;resize:vertical;box-sizing:border-box;border:1.5px solid var(--sub);border-radius:14px;padding:10px;font-size:11px;line-height:1.5;font-family:ui-monospace,Menlo,Consolas,monospace;background:#fff;color:var(--text);}
 .backup-text:focus{outline:none;border-color:var(--pink);}
+.backup-file{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;}
 .grp-title{margin:14px 0 8px;font-size:14px;font-weight:500;color:var(--pink);
   padding-left:10px;border-left:4px solid var(--sub);letter-spacing:.5px;}
 
