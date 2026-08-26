@@ -979,9 +979,12 @@ function renderSalaryList(){
   const items=arr.map(m=>{const r=s[m];
     const detail=recLine('底薪','¥'+money(num(r.base)))
       +recLine('三薪工资','¥'+money(num(r.triple)))
+      + '<div class="sub-result">'
       +recLine('绩效基数','¥'+money(num(r.perfBase)))
-      +recLine('绩效系数',pF(num(r.coef)))
-      +recLine('最终绩效工资','¥'+money(num(r.finalPerf)))
+      +recLine('绩效系数',pF(num(r.coef))+' <span class="coef-mark">☞</span>')
+      +recLine('最终绩效工资','¥'+money(num(r.finalPerf))+' <span class="formula">= '+money(num(r.perfBase))+' × '+pF(num(r.coef))+'</span>')
+      + '</div>'
+      + '<div class="coef-note">📌 系数 '+pF(num(r.coef))+' 作用于：绩效基数 → 最终绩效工资；提成各档（见下）</div>'
       +recLine('工龄奖','¥'+money(num(r.seniority)))
       +recLine('岗位补贴','¥'+money(num(r.post)))
       +recLine('奖励','¥'+money(num(r.reward)))
@@ -989,10 +992,12 @@ function renderSalaryList(){
       +recLine('迟到请假扣款','-¥'+money(num(r.deduct)))
       +recLine('五险一金','-¥'+money(num(r.ins)))
       +recLine('个税','-¥'+money(num(r.tax)))
-      +recLine('提成合计','¥'+money(num(r.commission)))
-      +recLine('① 档一 9000-11000','¥'+money(num(r.c1)))
-      +recLine('② 档二 11000-15000','¥'+money(num(r.c2)))
-      +recLine('③ 档三 &gt;15000','¥'+money(num(r.c3)))
+      + '<div class="sub-result">'
+      +recLine('提成合计','¥'+money(num(r.commission))+' <span class="formula">（含 '+pF(num(r.coef))+' 系数）</span>')
+      +recLine('① 档一 9000-11000','¥'+money(num(r.c1))+' <span class="coef-mark">(×'+pF(num(r.coef))+')</span>')
+      +recLine('② 档二 11000-15000','¥'+money(num(r.c2))+' <span class="coef-mark">(×'+pF(num(r.coef))+')</span>')
+      +recLine('③ 档三 &gt;15000','¥'+money(num(r.c3))+' <span class="coef-mark">(×'+pF(num(r.coef))+')</span>')
+      + '</div>'
       +recLine('应发合计','¥'+money(num(r.yf)))
       +recLine('实发工资','¥'+money(num(r.sf)))
       + (Array.isArray(r.imgs)&&r.imgs.length? salImgsDetail(r.imgs):'');
