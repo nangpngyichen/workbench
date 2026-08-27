@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v70';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v71';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
 function load(key,def){
@@ -256,6 +256,7 @@ function topbar(title,sub,page){
         <input type="file" id="importFile" accept=".txt,application/json" style="display:none">
       </div>
       <div class="backup-tip">数据只存在本机浏览器：⬇ 备份=把数据导出成文件存到手机；⬆ 恢复=换新手机/浏览器时把文件导回来。链接本身不存数据。</div>
+      <div class="ver-strip"><span>当前代码 <b id="topVer">${APP_VER}</b></span><button class="btn ghost xs" id="topRefreshBtn" type="button">🔄 强制刷新</button></div>
     </div>${modeRow}`;
 }
 
@@ -1826,6 +1827,7 @@ function render(){
   const cb=$('#copyBackupBtn');if(cb)cb.addEventListener('click',copyBackup);
   // 强制刷新（SW 已接管时，reload 会走 cache:'reload' 拉最新 app.js）
   const fub=$('#forceUpdateBtn');if(fub)fub.addEventListener('click',function(){ location.reload(true); });
+  const trb=$('#topRefreshBtn');if(trb)trb.addEventListener('click',function(){ location.reload(true); });
   const vt=$('#verTip');if(vt)vt.textContent='当前代码 '+APP_VER;
   if(bind)bind();
   // 更新导航高亮
