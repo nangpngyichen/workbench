@@ -1545,7 +1545,12 @@ function renderYihaoSummary(){
       <span class="yh-name">${name}</span>
       <div class="yh-ledger-detail">
         <div class="yh-row yh-bal"><span>余额</span><b>¥${money(bal)}</b></div>
-        <div class="yh-row yh-flow"><span>存入 ¥${money(sIn)}</span><span>取出 ¥${money(sOut)}</span></div>
+        <div class="yh-row yh-flow"><span>存入 ¥${money(sIn)}</span><span>取出 ¥${money(sOut)}</span></div>${key==='monthly'?(function(){
+          const sub=depMonthlySub(arr);
+          return DEP_MONTHLY_SUBS.map(([sk,sn])=>{const t=sub[sk]||{in:0,out:0};
+            return `<div class="sum-sub"><span>· ${sn}</span><span>存入 ¥${money(t.in)} ｜ 取出 ¥${money(t.out)}</span></div>`;
+          }).join('');
+        })():''}
       </div>
     </div>`;
   });
