@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v71';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v72';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
 function load(key,def){
@@ -34,6 +34,23 @@ function asObj(x){ return (x&&typeof x==='object'&&!Array.isArray(x))?x:{}; }
    这里主动注册 SW、监听更新，发现新版本立即接管并自动刷新一次。 */
 (function setupSW(){
   if(!('serviceWorker' in navigator)) return;
+  // 🔧 自愈模式：URL 带 ?fresh=1 时，注销所有旧 SW + 清空全部缓存，再跳回干净地址。
+  // 这是唯一不依赖"手机先拉到新代码"的强制刷新手段，专治旧 SW 死赖着不放手。
+  if(/[?&]fresh=1(\b|&|$)/.test(location.search)){
+    Promise.all([
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        return Promise.all(regs.map(function(r){ return r.unregister(); }));
+      }),
+      (window.caches ? caches.keys() : Promise.resolve([])).then(function(ks){
+        return Promise.all((ks||[]).map(function(k){ return caches.delete(k); }));
+      })
+    ]).then(function(){
+      var clean = location.pathname + location.hash;
+      // 关键：清 cache 后强制重新加载（breakCache 让 SW/CDN 都别用旧 cached 资源）
+      window.location.replace(clean + (clean.indexOf('?')>=0?'&':'?') + 'breakcache=' + Date.now());
+    }).catch(function(){ window.location.replace(location.pathname); });
+    return;
+  }
   function doReload(){
     try{ if(navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage('skipWaiting'); }catch(e){}
     setTimeout(function(){ location.reload(); }, 400);
