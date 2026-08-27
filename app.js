@@ -34,6 +34,8 @@ function save(key,val){
 function num(v){const n=parseFloat(v);return isNaN(n)?0:n;}
 function money(n){return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2);}
 function pF(n){return (Math.round((n+Number.EPSILON)*10)/10).toFixed(1);}
+// 系数专用：保留 2 位小数，但去掉无意义的末尾 0（如 0.83 → "0.83"，1 → "1"，0.80 → "0.8"）
+function pF2(n){const s=(Math.round((n+Number.EPSILON)*100)/100).toFixed(2);return parseFloat(s).toString();}
 function ym(d){d=d||new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 function ymd(d){d=d||new Date();return ym(d)+'-'+String(d.getDate()).padStart(2,'0');}
 function uid(){return Date.now()+''+Math.floor(Math.random()*1000);}
@@ -981,10 +983,10 @@ function renderSalaryList(){
       +recLine('三薪工资','¥'+money(num(r.triple)))
       + '<div class="sub-result">'
       +recLine('绩效基数','¥'+money(num(r.perfBase)))
-      +recLine('绩效系数',pF(num(r.coef))+' <span class="coef-mark">☞</span>')
-      +recLine('最终绩效工资','¥'+money(num(r.finalPerf))+' <span class="formula">= '+money(num(r.perfBase))+' × '+pF(num(r.coef))+'</span>')
+      +recLine('绩效系数',pF2(num(r.coef))+' <span class="coef-mark">☞</span>')
+      +recLine('最终绩效工资','¥'+money(num(r.finalPerf))+' <span class="formula">= '+money(num(r.perfBase))+' × '+pF2(num(r.coef))+'</span>')
       + '</div>'
-      + '<div class="coef-note">📌 系数 '+pF(num(r.coef))+' 作用于：绩效基数 → 最终绩效工资；提成各档（见下）</div>'
+      + '<div class="coef-note">📌 系数 '+pF2(num(r.coef))+' 作用于：绩效基数 → 最终绩效工资；提成各档（见下）</div>'
       +recLine('工龄奖','¥'+money(num(r.seniority)))
       +recLine('岗位补贴','¥'+money(num(r.post)))
       +recLine('奖励','¥'+money(num(r.reward)))
@@ -993,10 +995,10 @@ function renderSalaryList(){
       +recLine('五险一金','-¥'+money(num(r.ins)))
       +recLine('个税','-¥'+money(num(r.tax)))
       + '<div class="sub-result">'
-      +recLine('提成合计','¥'+money(num(r.commission))+' <span class="formula">（含 '+pF(num(r.coef))+' 系数）</span>')
-      +recLine('① 档一 9000-11000','¥'+money(num(r.c1))+' <span class="coef-mark">(×'+pF(num(r.coef))+')</span>')
-      +recLine('② 档二 11000-15000','¥'+money(num(r.c2))+' <span class="coef-mark">(×'+pF(num(r.coef))+')</span>')
-      +recLine('③ 档三 &gt;15000','¥'+money(num(r.c3))+' <span class="coef-mark">(×'+pF(num(r.coef))+')</span>')
+      +recLine('提成合计','¥'+money(num(r.commission))+' <span class="formula">（含 '+pF2(num(r.coef))+' 系数）</span>')
+      +recLine('① 档一 9000-11000','¥'+money(num(r.c1))+' <span class="coef-mark">(×'+pF2(num(r.coef))+')</span>')
+      +recLine('② 档二 11000-15000','¥'+money(num(r.c2))+' <span class="coef-mark">(×'+pF2(num(r.coef))+')</span>')
+      +recLine('③ 档三 &gt;15000','¥'+money(num(r.c3))+' <span class="coef-mark">(×'+pF2(num(r.coef))+')</span>')
       + '</div>'
       +recLine('应发合计','¥'+money(num(r.yf)))
       +recLine('实发工资','¥'+money(num(r.sf)))
