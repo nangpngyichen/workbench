@@ -7,6 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
+const APP_VER='v70';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
 function load(key,def){
@@ -27,6 +28,43 @@ function load(key,def){
 }
 function asArr(x){ return Array.isArray(x)?x:[]; }
 function asObj(x){ return (x&&typeof x==='object'&&!Array.isArray(x))?x:{}; }
+
+/* ---------- Service Worker 注册 + 自动更新（iOS Safari 更新惰性兜底） ----------
+   普通刷新有时不会触发 SW 重装，导致改了代码手机仍显示旧版。
+   这里主动注册 SW、监听更新，发现新版本立即接管并自动刷新一次。 */
+(function setupSW(){
+  if(!('serviceWorker' in navigator)) return;
+  function doReload(){
+    try{ if(navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage('skipWaiting'); }catch(e){}
+    setTimeout(function(){ location.reload(); }, 400);
+  }
+  function registerSW(){
+    navigator.serviceWorker.register('./sw.js').then(function(reg){
+      // 已有一个待激活的新 SW（比如刚装好但页面还没 reload）
+      if(reg.waiting){ doReload(); return; }
+      reg.addEventListener('updatefound', function(){
+        var installing=reg.installing;
+        if(!installing) return;
+        installing.addEventListener('statechange', function(){
+          if(installing.state==='installed'){
+            if(navigator.serviceWorker.controller) doReload();  // 旧 SW 控制中 → 刷新接管
+            else location.reload();                              // 首次安装 → 直接刷新
+          }
+        });
+      });
+      // 每 60s 主动检查一次更新
+      setInterval(function(){ try{ reg.update(); }catch(e){} }, 60000);
+    }).catch(function(){});
+    navigator.serviceWorker.addEventListener('message', function(e){
+      if(e.data==='reload' || e.data==='skipWaiting'){
+        try{ navigator.serviceWorker.controller && navigator.serviceWorker.controller.postMessage('skipWaiting'); }catch(_){}
+        setTimeout(function(){ location.reload(); }, 300);
+      }
+    });
+  }
+  if(document.readyState==='complete' || document.readyState==='interactive') registerSW();
+  else window.addEventListener('load', registerSW);
+})();
 function save(key,val){
   try{ localStorage.setItem(PREFIX+key,JSON.stringify(val)); }
   catch(e){ toast('⚠️ 本地存储空间不足，本次数据可能未保存，请删除部分旧图片或记录后重试'); }
@@ -289,6 +327,10 @@ function renderHome(){
     <div class="row2">
       <button class="btn ghost sm" id="importTextBtn" type="button">📋 从文本导入</button>
       <button class="btn ghost sm" id="copyBackupBtn" type="button">📑 复制文本</button>
+    </div>
+    <div class="row2" style="margin-top:8px;">
+      <button class="btn ghost sm" id="forceUpdateBtn" type="button">🔄 强制刷新页面</button>
+      <span class="ver-tip" id="verTip"></span>
     </div>
     <input type="file" id="homeImportFile" class="backup-file" accept=".txt,.json,application/json,text/plain">
   </div>`;
@@ -1782,6 +1824,9 @@ function render(){
   const hfi=$('#homeImportFile');if(hfi)hfi.addEventListener('change',e=>{if(e.target.files&&e.target.files[0])importBackup(e.target.files[0]);e.target.value='';});
   const itb=$('#importTextBtn');if(itb)itb.addEventListener('click',importBackupText);
   const cb=$('#copyBackupBtn');if(cb)cb.addEventListener('click',copyBackup);
+  // 强制刷新（SW 已接管时，reload 会走 cache:'reload' 拉最新 app.js）
+  const fub=$('#forceUpdateBtn');if(fub)fub.addEventListener('click',function(){ location.reload(true); });
+  const vt=$('#verTip');if(vt)vt.textContent='当前代码 '+APP_VER;
   if(bind)bind();
   // 更新导航高亮
   $$('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===currentPage));
