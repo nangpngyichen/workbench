@@ -94,6 +94,9 @@ input,select{font-family:inherit;}
 .topbar h1{font-size:17px;margin:0;font-weight:500;}
 .topbar .sub{font-size:11px;opacity:.7;}
 .backup-tip{flex-basis:100%;margin-top:6px;font-size:11px;line-height:1.45;color:var(--pink,#e86a92);opacity:.85;background:rgba(255,158,196,.12);border:1px solid var(--sub,#ffd6e7);border-radius:10px;padding:6px 9px;}
+.ver-strip{flex-basis:100%;margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:var(--pink,#e86a92);}
+.ver-strip b{color:var(--danger,#e86a92);font-weight:600;letter-spacing:.5px;}
+.ver-strip .btn.xs{padding:3px 8px;font-size:11px;}
 
 /* 模式切换开关（分段控件） */
 .mode-switch{display:flex;background:#fff;border-radius:14px;padding:3px;box-shadow:var(--shadow-soft);}
