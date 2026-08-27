@@ -1,7 +1,8 @@
 /* 工作台 Service Worker —— 缓存应用外壳，支持离线 / 添加到主屏幕
    更新策略：
    - 应用核心（index.html / app.js / styles.css / manifest）：网络优先，
-     每次在线都拉取最新版本，离线时才回退到缓存。
+     每次在线都拉取最新版本（fetch 带 cache:'reload' 绕过 HTTP 缓存，
+     确保改完即生效），离线时才回退到缓存。
    - 只缓存「成功(200)」的响应，绝不缓存错误页 / 空白页，避免手机端白屏。
    - 图标等静态资源：缓存优先（几乎不变，省流量），同样只缓存 200。
    - 缓存版本号：每次大改请 +1，强制旧缓存失效。 */
@@ -51,10 +52,10 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return; // 只处理同源请求
   const path = url.pathname;
 
-  // 导航请求：网络优先，离线时回退到已缓存的核心页面
+  // 导航请求：网络优先（cache:'reload' 强制回源，绕过 HTTP 缓存），离线时回退到已缓存的核心页面
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).then((resp) => {
+      fetch(req, {cache:'reload'}).then((resp) => {
         caches.open(CACHE).then((c) => cachePut(c, './index.html', resp));
         return resp;
       }      ).catch(() =>
@@ -65,10 +66,10 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // 应用核心文件：网络优先（保证拿到最新代码），失败再回退缓存
+  // 应用核心文件：网络优先（cache:'reload' 强制回源，保证拿到最新代码），失败再回退缓存
   if (SHELL.includes(path)) {
     e.respondWith(
-      fetch(req).then((resp) => {
+      fetch(req, {cache:'reload'}).then((resp) => {
         caches.open(CACHE).then((c) => cachePut(c, req, resp));
         return resp;
       }).catch(() => caches.match(req))
