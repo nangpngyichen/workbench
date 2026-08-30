@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v72';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v73';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
 function load(key,def){
@@ -1073,42 +1073,107 @@ function renderSalaryList(){
 /* =========================================================
    页面：工资分配
    ========================================================= */
+// 工资分配支出分类（支出按「使用月」记录，可用工资取自「计薪月」实发，二者固定相差一个月）
+const AL_EXPENSE=[['need','必要生活开销'],['shop','家庭购物'],['house','房贷'],['card','信用卡'],
+  ['douyin','抖音月付'],['fenqile','分期乐'],['huabei','花呗'],['flex','话费充值'],['travel','出行支出'],['jiangxi','江西电费']];
+const AL_LABEL={}; AL_EXPENSE.forEach(([k,l])=>AL_LABEL[k]=l);
+// 月度分类汇总（兼容旧格式：旧数据无 days 直接读分类字段；新格式聚合 days）
+function alMonthExpense(rec){
+  const m={}; AL_EXPENSE.forEach(function(e){m[e[0]]=0;});
+  if(rec&&rec.days){ Object.keys(rec.days).forEach(function(d){const day=rec.days[d]||{}; AL_EXPENSE.forEach(function(e){m[e[0]]+=num(day[e[0]]);});}); }
+  else if(rec){ AL_EXPENSE.forEach(function(e){m[e[0]]+=num(rec[e[0]]);}); }
+  return m;
+}
+function alMonthExpenseSum(rec){ const m=alMonthExpense(rec); return AL_EXPENSE.reduce(function(s,e){return s+num(m[e[0]]);},0); }
+function alDayGet(rec,date){ return (rec&&rec.days&&rec.days[date])?rec.days[date]:{}; }
 let alViewMonth=null;
+let alSelDate=null;
+// 数据迁移：旧格式 allocation[月]={need,shop,...,save}（月汇总）转成新格式 {days:{'月-01':{...}},save}，
+// 旧分类汇总整体并入「当月1号」虚拟日，避免保存任意一天后旧数据丢失。幂等。
+function migrateAllocation(){
+  const s=load('allocation',{});let changed=false;
+  Object.keys(s).forEach(function(m){
+    const r=s[m]; if(!r||r.days) return;
+    const day={}; AL_EXPENSE.forEach(function(e){ if(num(r[e[0]])>0) day[e[0]]=num(r[e[0]]); });
+    const days={}; if(Object.keys(day).length) days[m+'-01']=day;
+    s[m]={days:days, save:num(r.save)}; changed=true;
+  });
+  if(changed) save('allocation',s);
+  return s;
+}
+function getAllocation(){ return migrateAllocation(); }
 let goldViewMonth=null;
 function renderAllocation(){
   const domMonth=(currentPage==='allocation'&&$('#alMonth'))?$('#alMonth').value:null;
   const month=alViewMonth||domMonth||ym(new Date());
   alViewMonth=null;
-  const rec=load('allocation',{})[month];
-  const sal=getSalaryRecord(month);
+  const wageMonth=shiftMonth(month,-1);                 // 计薪月（次月发放）
+  const sal=getSalaryRecord(wageMonth);
   const base=sal?num(sal.sf):0;
-  const expenseFields=[
-    ['need','必要生活开销'],['shop','家庭购物'],['house','房贷'],['card','信用卡'],
-    ['douyin','抖音月付'],['fenqile','分期乐'],['huabei','花呗'],['flex','话费充值'],['travel','出行支出'],['jiangxi','江西电费']
-  ];
-  const saveFields=[['save','储蓄(纯记录)']];
-  const inputsExpense=expenseFields.map(([k,l])=>`<div class="field"><label>${l}</label><input type="number" class="al-exp" name="${k}" step="any" value="${rec?rec[k]:''}" placeholder="0"></div>`).join('');
-  const inputsSave=saveFields.map(([k,l])=>`<div class="field"><label>${l}</label><input type="number" name="${k}" step="any" value="${rec?rec[k]:''}" placeholder="0"></div>`).join('');
-  const expenseSum=expenseFields.reduce((s,[k])=>s+num(rec?rec[k]:0),0);
-  return topbar('工资分配','把钱安排得明明白白', 'allocation')+`
+  const rec=getAllocation()[month]||{};
+  const exp=alMonthExpense(rec);
+  const expSum=alMonthExpenseSum(rec);
+  const sv=num(rec.save);
+  const remain=base-expSum-sv;
+  // 每日支出合计
+  const days=rec.days||{};
+  const dayAmt={};
+  Object.keys(days).forEach(function(d){const day=days[d]||{};let s=0;AL_EXPENSE.forEach(function(e){s+=num(day[e[0]]);});dayAmt[d]=s;});
+  // 日历
+  const ymArr=month.split('-').map(Number);
+  const first=new Date(ymArr[0],ymArr[1]-1,1).getDay();
+  const dim=new Date(ymArr[0],ymArr[1],0).getDate();
+  let cal='<div class="wlcal-grid">';
+  ['日','一','二','三','四','五','六'].forEach(function(w){cal+='<span class="wlcal-h">'+w+'</span>';});
+  for(let i=0;i<first;i++)cal+='<span class="wlcal-cell empty"></span>';
+  for(let d=1;d<=dim;d++){
+    const ds=month+'-'+String(d).padStart(2,'0');
+    const amt=dayAmt[ds]||0;
+    const cls='wlcal-cell'+(amt>0?' has':'')+(alSelDate===ds?' sel':'');
+    cal+='<span class="'+cls+'" data-date="'+ds+'"><span class="al-dnum">'+d+'</span>'+(amt>0?'<span class="al-day-amt">¥'+money(amt)+'</span>':'')+'</span>';
+  }
+  cal+='</div>';
+  // 当日明细录入
+  const sel=alSelDate||null;
+  let dayPanel='';
+  if(sel){
+    const day=alDayGet(rec,sel);
+    const fields=AL_EXPENSE.map(function(e){return '<div class="field"><label>'+e[1]+'</label><input type="number" class="al-day-exp" data-k="'+e[0]+'" step="any" value="'+(day[e[0]]||'')+'" placeholder="0"></div>';}).join('');
+    dayPanel='<div class="card al-day-card"><h2>📝 '+sel+' 当日支出</h2>'
+      +'<div class="result" style="margin-bottom:8px"><div class="line"><span>当日合计</span><b class="big" id="alDayTotal">¥'+money(dayAmt[sel]||0)+'</b></div></div>'
+      +fields+'<button class="btn" type="button" id="alSaveDay">保存当日</button></div>';
+  }
+  // 分类汇总
+  const sumCards=AL_EXPENSE.map(function(e){return '<div class="sum-sub"><span>· '+e[1]+'</span><span>¥'+money(exp[e[0]])+'</span></div>';}).join('');
+  return topbar('工资分配','把钱安排得明明白白','allocation')+`
   <div class="card">
-    <h2>🧾 工资分配（${month}）</h2>
+    <h2>🧾 工资分配 · 使用月 ${month}</h2>
     ${monthHeadHTML('alPrev','alNext',month)}
     <input type="hidden" id="alMonth" value="${month}">
-    <div class="result" style="margin-bottom:10px">
-      <div class="line"><span>读取·${month}实发工资</span><b class="big">¥${money(base)}</b></div>
+    <div class="al-wage-card">
+      <div class="al-wage-line">本页消费的是 <b>${wageMonth}</b> 的工资 · 工资次月发放</div>
+      <div class="al-wage-row"><span>可用工资（${wageMonth} 实发）</span><b class="big" style="color:#E86A92">¥${money(base)}</b></div>
+      <div class="al-wage-row2"><span>已支出 ¥${money(expSum)}</span><span>储蓄 ¥${money(sv)}</span><span>结余 ¥${money(remain)}</span></div>
+      ${sal?'':`<div class="warn-text">⚠ 尚未录入 ${wageMonth} 工资，请先到「每月工资组成」保存，对账以 0 为基准</div>`}
     </div>
-    ${sal?'':`<p class="note">⚠ 尚未录入${month}工资，请先到「每月工资组成」保存，账平校验将以 0 为基准</p>`}
-    <form id="alForm">
-      <h3 class="grp-title">💸 支出</h3>
-      ${inputsExpense}
-      <div class="result" style="margin:6px 0 14px"><div class="line"><span>支出合计</span><b class="big" id="alExpenseTotal">¥${money(expenseSum)}</b></div></div>
-      <h3 class="grp-title">🐷 储蓄（同步到「我的存款·每月存款」）</h3>
-      ${inputsSave}
-      <button class="btn" type="submit">保存分配</button>
-    </form>
+    <div class="al-flow">
+      <span class="al-flow-node warn">${wageMonth} 计薪</span>
+      <span class="al-flow-arrow">→ 次月发放 →</span>
+      <span class="al-flow-node ok">${month} 可用池</span>
+      <span class="al-flow-arrow">→ 每日支出</span>
+    </div>
+    <h3 class="grp-title" style="margin-top:12px">🗓 每日支出（点日期补录当天明细）</h3>
+    ${cal}
+    ${dayPanel}
+  </div>
+  <div class="card">
+    <h2>💸 支出分类汇总（${month}）</h2>
+    ${sumCards}
+    <div class="result" style="margin:8px 0"><div class="line"><span>支出合计</span><b class="big" id="alExpenseTotal">¥${money(expSum)}</b></div></div>
+    <div class="field"><label>🐷 储蓄（自动同步到「我的存款·每月存款」${wageMonth} 计薪月）</label><input type="number" id="alSave" step="any" value="${rec.save||''}" placeholder="0"></div>
+    <button class="btn" type="button" id="alSaveAlloc">保存分配</button>
     <div id="alCheck"></div>
-    <p class="hint">💡 储蓄栏可手动填写；点「保存分配」后，该金额会自动同步写回「我的存款·每月存款」台账（显示为带「自动同步」备注的存入记录）。存款模块仍可手动添加其他存款，互不冲突。</p>
+    <p class="hint">💡 「保存分配」仅保存储蓄并同步存款台账；每日支出请用上方日历点日期后「保存当日」。</p>
   </div>
   <div class="card">
     <h2>📜 每月分配历史</h2>
@@ -1116,54 +1181,87 @@ function renderAllocation(){
   </div>`;
 }
 function bindAllocation(){
-  const form=$('#alForm');
-  const expenseNames=['need','shop','house','card','douyin','fenqile','huabei','flex','travel','jiangxi'];
-  const allNames=[...expenseNames,'save'];
-  function expenseTotal(){let s=0;expenseNames.forEach(n=>s+=num(form[n].value));return s;}
+  const monthId=()=>$('#alMonth')?$('#alMonth').value:ym(new Date());
+  const wageId=()=>shiftMonth(monthId(),-1);
+  const getRec=()=>getAllocation()[monthId()]||{};
+  // 对账：月度支出合计(聚合 days) + 储蓄 = 计薪月实发
   function check(){
-    const month=$('#alMonth')?$('#alMonth').value:ym(new Date());
-    const realBase=getSalaryRecord(month)?num(getSalaryRecord(month).sf):0;
-    const et=expenseTotal();
-    const etBox=$('#alExpenseTotal');if(etBox)etBox.textContent='¥'+money(et);
-    const box=$('#alCheck');
-    if(realBase===0){box.innerHTML='<div class="warn-text">未录入本月工资，无法校验账平</div>';return;}
-    const total=et+num(form.save.value);
-    if(Math.abs(total-realBase)<0.005){box.innerHTML='<div style="color:#2BA471;font-weight:800;margin-top:6px">✅ 账已平，支出合计 + 储蓄 = 实发工资</div>';}
-    else{box.innerHTML=`<div class="warn-text">账不平！支出合计 ¥${money(et)} + 储蓄 ¥${money(num(form.save.value))} = ¥${money(total)}，与实发 ¥${money(realBase)} 相差 ¥${money(realBase-total)}</div>`;}
+    const m=monthId(), wm=wageId();
+    const base=getSalaryRecord(wm)?num(getSalaryRecord(wm).sf):0;
+    const expSum=alMonthExpenseSum(getRec());
+    const sv=num($('#alSave')?$('#alSave').value:0);
+    const etBox=$('#alExpenseTotal');if(etBox)etBox.textContent='¥'+money(expSum);
+    const box=$('#alCheck');if(!box)return;
+    if(base===0){box.innerHTML='<div class="warn-text">未录入'+wm+'工资，无法校验账平</div>';return;}
+    const total=expSum+sv;
+    if(Math.abs(total-base)<0.005){box.innerHTML='<div style="color:#2BA471;font-weight:500;margin-top:6px">✅ 支出 + 储蓄 = '+wm+' 实发工资，对账一致</div>';}
+    else{box.innerHTML='<div class="warn-text">账不平！支出 ¥'+money(expSum)+' + 储蓄 ¥'+money(sv)+' = ¥'+money(total)+'，与实发 ¥'+money(base)+' 相差 ¥'+money(base-total)+'</div>';}
   }
-  form.addEventListener('input',check);
-  form.addEventListener('submit',e=>{
-    e.preventDefault();const month=$('#alMonth')?$('#alMonth').value:ym(new Date());
-    const rec={};allNames.forEach(n=>rec[n]=num(form[n].value));
-    const s=load('allocation',{});s[month]=rec;save('allocation',s);
-    // 双向同步：把储蓄金额写回「我的存款·每月存款」台账（按月唯一，自动去重）
-    setAllocSavingToLedger(month,rec.save);
-    toast('分配已保存 💕');check();renderAllocationList();
+  // 日历日期点击 → 选中并渲染（带当日明细面板）
+  $$('.wlcal-cell[data-date]').forEach(function(cell){
+    cell.addEventListener('click',function(){ alSelDate=cell.getAttribute('data-date'); render(); });
   });
+  // 当日明细：实时更新「当日合计」
+  function refreshDayTotal(){
+    let s=0; $$('.al-day-exp').forEach(function(inp){s+=num(inp.value);});
+    const dt=$('#alDayTotal'); if(dt)dt.textContent='¥'+money(s);
+  }
+  // 保存当日（写入 days[date]）
+  const sdB=$('#alSaveDay');
+  if(sdB){
+    const panel=sdB.closest('.al-day-card');
+    if(panel) panel.addEventListener('input',function(e){ if(e.target.classList.contains('al-day-exp')) refreshDayTotal(); });
+    sdB.addEventListener('click',function(){
+      const date=alSelDate; if(!date)return;
+      const day={}; AL_EXPENSE.forEach(function(e){
+        const inp=panel.querySelector('.al-day-exp[data-k="'+e[0]+'"]'); day[e[0]]=inp?num(inp.value):0;
+      });
+      const s=getAllocation(); const r=s[monthId()]||{days:{}}; r.days=r.days||{};
+      const allZero=AL_EXPENSE.every(function(e){return num(day[e[0]])===0;});
+      if(allZero) delete r.days[date]; else r.days[date]=day;
+      s[monthId()]=r; save('allocation',s);
+      toast('当日已保存 💕'); render();
+    });
+  }
+  // 保存分配（储蓄 + 同步到计薪月存款台账）
+  const sb=$('#alSaveAlloc');
+  if(sb){
+    const svEl=$('#alSave'); if(svEl)svEl.addEventListener('input',check);
+    sb.addEventListener('click',function(){
+      const m=monthId(), wm=wageId();
+      const s=getAllocation(); const r=s[m]||{days:{}};
+      r.save=num($('#alSave').value); s[m]=r; save('allocation',s);
+      setAllocSavingToLedger(wm, r.save);   // 储蓄记到计薪月（钱是计薪月赚的）
+      toast('分配已保存 💕'); check(); renderAllocationList();
+    });
+  }
   check();renderAllocationList();bindMonthGroupToggle('#alList');enableRecDetailToggle('#alList');
-  // 左右切换月份
+  // 左右切换月份（切换时清空当日选中）
   const alPrev=$('#alPrev'),alNext=$('#alNext');
-  if(alPrev)alPrev.addEventListener('click',()=>{const m=$('#alMonth');if(m){m.value=shiftMonth(m.value,-1);render();}});
-  if(alNext)alNext.addEventListener('click',()=>{const m=$('#alMonth');if(m){m.value=shiftMonth(m.value,1);render();}});
+  if(alPrev)alPrev.addEventListener('click',()=>{alSelDate=null;const m=$('#alMonth');if(m){m.value=shiftMonth(m.value,-1);render();}});
+  if(alNext)alNext.addEventListener('click',()=>{alSelDate=null;const m=$('#alMonth');if(m){m.value=shiftMonth(m.value,1);render();}});
 }
 function renderAllocationList(){
-  const s=load('allocation',{});const box=$('#alList');if(!box)return;
+  const s=getAllocation();const box=$('#alList');if(!box)return;
   const arr=Object.keys(s).sort().reverse();
   if(!arr.length){box.innerHTML='<div class="empty">暂无分配记录</div>';return;}
-  const expenseNames=['need','shop','house','card','douyin','fenqile','huabei','flex','travel','jiangxi'];
-  const LABELS={need:'必要生活开销',shop:'家庭购物',house:'房贷',card:'信用卡',douyin:'抖音月付',fenqile:'分期乐',huabei:'花呗',flex:'话费充值',travel:'出行支出',jiangxi:'江西电费',save:'储蓄(纯记录)'};
   const items=arr.map(m=>{const r=s[m];
-    const exp=expenseNames.reduce((a,k)=>a+num(r[k]),0);
+    const wm=shiftMonth(m,-1);                       // 计薪月
+    const wage=getSalaryRecord(wm);
+    const base=wage?num(wage.sf):0;
+    const exp=alMonthExpenseSum(r);
     const sv=num(r.save);
+    const remain=base-exp-sv;
+    const expMap=alMonthExpense(r);
     let detail='';
-    expenseNames.forEach(k=>{detail+=recLine(LABELS[k],'¥'+money(num(r[k])));});
+    AL_EXPENSE.forEach(function(e){detail+=recLine(AL_LABEL[e[0]],'¥'+money(num(expMap[e[0]])));});
     detail+=recLine('储蓄(纯记录)','¥'+money(sv));
     detail+=recLine('支出合计','¥'+money(exp));
     detail+=recLine('总合计（支出+储蓄）','¥'+money(exp+sv));
     const html=`<div class="item"><div class="meta">
-      <span>📅 ${m}</span><span class="amt">合计 ¥${money(exp+sv)} <span class="chev">▾</span></span></div>
+      <span>📅 使用月 ${m} · 计薪 ${wm}</span><span class="amt">可用 ¥${money(base)} <span class="chev">▾</span></span></div>
     <div style="font-size:11px;opacity:.85;margin-top:4px;line-height:1.7">
-      💸 支出 ¥${money(exp)} ｜ 🐷 储蓄 ¥${money(sv)}
+      💸 已支出 ¥${money(exp)} ｜ 🐷 储蓄 ¥${money(sv)} ｜ 结余 ¥${money(remain)}
     </div>
     <div class="rec-detail" hidden>${detail}</div>
     <div style="margin-top:6px"><button class="del al-del" data-month="${m}">删除该月</button></div></div>`;
@@ -1172,8 +1270,8 @@ function renderAllocationList(){
   box.innerHTML=wrapByYear(items);
   $$('#alList .al-del').forEach(b=>b.addEventListener('click',()=>{
     if(confirm(`确定删除 ${b.dataset.month} 的工资分配记录吗？\n删除后不可恢复。`)){
-      const ss=load('allocation',{});delete ss[b.dataset.month];save('allocation',ss);
-      setAllocSavingToLedger(b.dataset.month,0); // 同步移除存款台账中的「储蓄(自动同步)」记录
+      const ss=getAllocation();delete ss[b.dataset.month];save('allocation',ss);
+      setAllocSavingToLedger(shiftMonth(b.dataset.month,-1),0); // 同步移除计薪月存款台账中的「储蓄(自动同步)」记录
       toast('已删除 💕');renderAllocationList();
     }
   }));
