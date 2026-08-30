@@ -226,6 +226,8 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(48%) sepia(60%
 .rec-detail .coef-note{font-size:11px;opacity:.7;color:var(--danger);margin:2px 0 4px;padding-left:12px;line-height:1.5;}
 .rec-detail .sub-result .dline{border-bottom:1px dotted rgba(255,158,196,.28);font-size:12px;}
 .rec-detail .sub-result .dline:last-child{border-bottom:none;font-weight:500;background:rgba(255,200,221,.18);}
+.alloc-in-sal{margin-top:10px;padding:8px 10px;border:1px solid var(--sub,#ffd6e7);border-radius:12px;background:rgba(255,158,196,.10);}
+.alloc-in-sal-h{font-size:11.5px;font-weight:500;color:#E86A92;margin-bottom:4px;}
 .list .item .view{display:inline-block;margin-left:6px;font-size:10px;font-weight:400;color:var(--danger);opacity:.85;}
 .empty{text-align:center;opacity:.55;font-size:12px;padding:14px 0;}
 
