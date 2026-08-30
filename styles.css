@@ -320,6 +320,23 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(48%) sepia(60%
 .cal-in,.cal-out{font-size:6px;line-height:1.1;padding:1px 2px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .cal-in{color:#2BA471;background:rgba(43,164,113,.10);}
 .cal-out{color:#E86A92;background:rgba(232,106,146,.10);}
+
+/* ===== 工资分配（使用月视角 / 次月发放 / 每日支出） ===== */
+.wlcal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:4px;}
+.al-dnum{font-size:11px;line-height:1.1;}
+.wlcal-cell .al-day-amt{font-size:9px;color:#E86A92;margin-top:1px;line-height:1.1;}
+.wlcal-cell.sel .al-day-amt{color:#fff;}
+.al-wage-card{border:1px solid #E86A92;border-radius:12px;padding:10px 12px;margin:6px 0 10px;background:rgba(232,106,146,.06);}
+.al-wage-line{font-size:12px;color:#E86A92;margin-bottom:6px;}
+.al-wage-line b{font-weight:500;}
+.al-wage-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:#555;}
+.al-wage-row2{display:flex;gap:12px;margin-top:6px;font-size:11px;color:#999;}
+.al-flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:11px;color:#888;margin:10px 0;}
+.al-flow-node{padding:3px 8px;border-radius:6px;font-size:11px;}
+.al-flow-node.warn{background:#FAEEDA;color:#BA7517;}
+.al-flow-node.ok{background:#EAF3DE;color:#639922;}
+.al-flow-arrow{opacity:.7;}
+.al-day-card{margin-top:12px;border:1px solid var(--sub,#ffd6e7);}
 .day-rec-title{font-size:12px;color:#b98aa0;margin-bottom:6px;padding-top:4px;border-top:1px dashed var(--sub);}
 .day-rec{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;background:var(--bg);margin-bottom:6px;font-size:12px;}
 .day-rec-tag{background:var(--sub);color:var(--text);padding:2px 6px;border-radius:8px;white-space:nowrap;}
