@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v73';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v74';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
 function load(key,def){
@@ -1077,6 +1077,8 @@ function renderSalaryList(){
 const AL_EXPENSE=[['need','必要生活开销'],['shop','家庭购物'],['house','房贷'],['card','信用卡'],
   ['douyin','抖音月付'],['fenqile','分期乐'],['huabei','花呗'],['flex','话费充值'],['travel','出行支出'],['jiangxi','江西电费']];
 const AL_LABEL={}; AL_EXPENSE.forEach(([k,l])=>AL_LABEL[k]=l);
+// 储蓄拆分到「我的存款」四个台账（与 DEP_LEDGERS 顺序/口径一致）
+const AL_SAVE=[['monthly','存款'],['fund','公积金'],['mom','妈'],['shoes','鞋服预存']];
 // 月度分类汇总（兼容旧格式：旧数据无 days 直接读分类字段；新格式聚合 days）
 function alMonthExpense(rec){
   const m={}; AL_EXPENSE.forEach(function(e){m[e[0]]=0;});
@@ -1085,6 +1087,8 @@ function alMonthExpense(rec){
   return m;
 }
 function alMonthExpenseSum(rec){ const m=alMonthExpense(rec); return AL_EXPENSE.reduce(function(s,e){return s+num(m[e[0]]);},0); }
+// 储蓄合计：rec.save 为对象 {monthly,fund,mom,shoes}，无则按 0 计
+function alSaveTotal(rec){ const sv=rec&&rec.save&&typeof rec.save==='object'?rec.save:{}; let s=0; AL_SAVE.forEach(function(l){s+=num(sv[l[0]]);}); return s; }
 function alDayGet(rec,date){ return (rec&&rec.days&&rec.days[date])?rec.days[date]:{}; }
 let alViewMonth=null;
 let alSelDate=null;
@@ -1093,10 +1097,19 @@ let alSelDate=null;
 function migrateAllocation(){
   const s=load('allocation',{});let changed=false;
   Object.keys(s).forEach(function(m){
-    const r=s[m]; if(!r||r.days) return;
-    const day={}; AL_EXPENSE.forEach(function(e){ if(num(r[e[0]])>0) day[e[0]]=num(r[e[0]]); });
-    const days={}; if(Object.keys(day).length) days[m+'-01']=day;
-    s[m]={days:days, save:num(r.save)}; changed=true;
+    const r=s[m]; if(!r) return;
+    let nr=r;
+    // 旧格式：无 days，把分类汇总并入「当月1号」虚拟日
+    if(!r.days){
+      const day={}; AL_EXPENSE.forEach(function(e){ if(num(r[e[0]])>0) day[e[0]]=num(r[e[0]]); });
+      const days={}; if(Object.keys(day).length) days[m+'-01']=day;
+      nr={days:days, save:(typeof r.save==='number'?{monthly:r.save}:(r.save&&typeof r.save==='object'?r.save:{}))};
+      changed=true;
+    }
+    // save 字段：数字 → 对象 {monthly}
+    if(typeof nr.save==='number'){ nr={days:nr.days||{}, save:{monthly:nr.save}}; changed=true; }
+    else if(!nr.save||typeof nr.save!=='object'){ nr={days:nr.days||{}, save:{}}; changed=true; }
+    s[m]=nr;
   });
   if(changed) save('allocation',s);
   return s;
@@ -1113,7 +1126,7 @@ function renderAllocation(){
   const rec=getAllocation()[month]||{};
   const exp=alMonthExpense(rec);
   const expSum=alMonthExpenseSum(rec);
-  const sv=num(rec.save);
+  const sv=alSaveTotal(rec);
   const remain=base-expSum-sv;
   // 每日支出合计
   const days=rec.days||{};
@@ -1170,10 +1183,12 @@ function renderAllocation(){
     <h2>💸 支出分类汇总（${month}）</h2>
     ${sumCards}
     <div class="result" style="margin:8px 0"><div class="line"><span>支出合计</span><b class="big" id="alExpenseTotal">¥${money(expSum)}</b></div></div>
-    <div class="field"><label>🐷 储蓄（自动同步到「我的存款·每月存款」${wageMonth} 计薪月）</label><input type="number" id="alSave" step="any" value="${rec.save||''}" placeholder="0"></div>
+    <div class="al-save-grid">
+      ${AL_SAVE.map(function(l){return '<div class="field"><label>🐷 '+l[1]+'（同步到「我的存款·'+l[1]+'」'+wageMonth+' 计薪月）</label><input type="number" id="alSave_'+l[0]+'" step="any" value="'+((rec.save&&num(rec.save[l[0]]))||'')+'" placeholder="0"></div>';}).join('')}
+    </div>
     <button class="btn" type="button" id="alSaveAlloc">保存分配</button>
     <div id="alCheck"></div>
-    <p class="hint">💡 「保存分配」仅保存储蓄并同步存款台账；每日支出请用上方日历点日期后「保存当日」。</p>
+    <p class="hint">💡 储蓄按上列四项分别记账到「我的存款」四个台账（存款 / 公积金 / 妈 / 鞋服预存），保存后会自动同步到对应台账的 ${wageMonth} 计薪月。每日支出请用上方日历点日期后「保存当日」。</p>
   </div>
   <div class="card">
     <h2>📜 每月分配历史</h2>
@@ -1184,12 +1199,15 @@ function bindAllocation(){
   const monthId=()=>$('#alMonth')?$('#alMonth').value:ym(new Date());
   const wageId=()=>shiftMonth(monthId(),-1);
   const getRec=()=>getAllocation()[monthId()]||{};
-  // 对账：月度支出合计(聚合 days) + 储蓄 = 计薪月实发
+  // 对账：月度支出合计(聚合 days) + 储蓄合计 = 计薪月实发
+  function curSaveTotal(){
+    let s=0; AL_SAVE.forEach(function(l){ const el=$('#alSave_'+l[0]); s+=num(el?el.value:0); }); return s;
+  }
   function check(){
     const m=monthId(), wm=wageId();
     const base=getSalaryRecord(wm)?num(getSalaryRecord(wm).sf):0;
     const expSum=alMonthExpenseSum(getRec());
-    const sv=num($('#alSave')?$('#alSave').value:0);
+    const sv=curSaveTotal();
     const etBox=$('#alExpenseTotal');if(etBox)etBox.textContent='¥'+money(expSum);
     const box=$('#alCheck');if(!box)return;
     if(base===0){box.innerHTML='<div class="warn-text">未录入'+wm+'工资，无法校验账平</div>';return;}
@@ -1223,15 +1241,16 @@ function bindAllocation(){
       toast('当日已保存 💕'); render();
     });
   }
-  // 保存分配（储蓄 + 同步到计薪月存款台账）
+  // 保存分配（储蓄四项 + 分别同步到四个存款台账的计薪月）
   const sb=$('#alSaveAlloc');
   if(sb){
-    const svEl=$('#alSave'); if(svEl)svEl.addEventListener('input',check);
+    AL_SAVE.forEach(function(l){ const el=$('#alSave_'+l[0]); if(el)el.addEventListener('input',check); });
     sb.addEventListener('click',function(){
       const m=monthId(), wm=wageId();
       const s=getAllocation(); const r=s[m]||{days:{}};
-      r.save=num($('#alSave').value); s[m]=r; save('allocation',s);
-      setAllocSavingToLedger(wm, r.save);   // 储蓄记到计薪月（钱是计薪月赚的）
+      const saveObj={}; AL_SAVE.forEach(function(l){ const el=$('#alSave_'+l[0]); saveObj[l[0]]=num(el?el.value:0); });
+      r.save=saveObj; s[m]=r; save('allocation',s);
+      setAllocSavingToLedger(wm, saveObj);   // 存款/公积金/妈/鞋服预存 分别记到计薪月（钱是计薪月赚的）
       toast('分配已保存 💕'); check(); renderAllocationList();
     });
   }
@@ -1250,12 +1269,13 @@ function renderAllocationList(){
     const wage=getSalaryRecord(wm);
     const base=wage?num(wage.sf):0;
     const exp=alMonthExpenseSum(r);
-    const sv=num(r.save);
+    const sv=alSaveTotal(r);
     const remain=base-exp-sv;
     const expMap=alMonthExpense(r);
     let detail='';
     AL_EXPENSE.forEach(function(e){detail+=recLine(AL_LABEL[e[0]],'¥'+money(num(expMap[e[0]])));});
-    detail+=recLine('储蓄(纯记录)','¥'+money(sv));
+    AL_SAVE.forEach(function(l){detail+=recLine('储蓄·'+l[1],'¥'+money(num(r.save?r.save[l[0]]:0)));});
+    detail+=recLine('储蓄合计','¥'+money(sv));
     detail+=recLine('支出合计','¥'+money(exp));
     detail+=recLine('总合计（支出+储蓄）','¥'+money(exp+sv));
     const html=`<div class="item"><div class="meta">
@@ -1271,7 +1291,7 @@ function renderAllocationList(){
   $$('#alList .al-del').forEach(b=>b.addEventListener('click',()=>{
     if(confirm(`确定删除 ${b.dataset.month} 的工资分配记录吗？\n删除后不可恢复。`)){
       const ss=getAllocation();delete ss[b.dataset.month];save('allocation',ss);
-      setAllocSavingToLedger(shiftMonth(b.dataset.month,-1),0); // 同步移除计薪月存款台账中的「储蓄(自动同步)」记录
+      setAllocSavingToLedger(shiftMonth(b.dataset.month,-1),{}); // 同步移除计薪月四个存款台账中的「储蓄(自动同步)」记录
       toast('已删除 💕');renderAllocationList();
     }
   }));
@@ -1297,12 +1317,17 @@ function depMonthlySub(arr){
 }
 // 仅统计存款台账中的「手动」存入（排除工资分配自动同步项），用于分配页默认值/防重复
 function ledgerMonthInManual(arr,month){return (arr||[]).filter(e=>e.type==='in'&&!e.src&&e.date&&e.date.startsWith(month)).reduce((s,e)=>s+num(e.amount),0);}
-// 把工资分配的储蓄金额同步写回「我的存款·每月存款」台账（带 src:'alloc' 标记，按月唯一，不会重复累加）
-function setAllocSavingToLedger(month,amount){
-  const d=load('deposits',{});d.monthly=asArr(d.monthly);
-  d.monthly=d.monthly.filter(e=>!(e.src==='alloc'&&e.date&&e.date.startsWith(month)));
-  const amt=num(amount);
-  if(amt>0)d.monthly.push({id:uid(),date:month+'-01',type:'in',amount:amt,note:'工资分配·储蓄(自动同步)',src:'alloc'});
+// 把工资分配的储蓄（对象 {monthly,fund,mom,shoes}）分别同步写回「我的存款」四个台账
+// 每个台账按 (src:'alloc' + 计薪月) 唯一，重存会先清旧项，不会重复累加
+function setAllocSavingToLedger(month,saveObj){
+  const d=load('deposits',{});
+  DEP_LEDGERS.forEach(function(l){
+    const key=l[0];
+    d[key]=asArr(d[key]);
+    d[key]=d[key].filter(e=>!(e.src==='alloc'&&e.date&&e.date.startsWith(month)));
+    const amt=num(saveObj?saveObj[key]:0);
+    if(amt>0) d[key].push({id:uid(),date:month+'-01',type:'in',amount:amt,note:'工资分配·储蓄(自动同步)',src:'alloc'});
+  });
   save('deposits',d);
 }
 function renderDeposit(){
