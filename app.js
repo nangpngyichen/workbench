@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v74';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v75';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
 function load(key,def){
@@ -1039,6 +1039,24 @@ function renderSalaryList(){
   const arr=Object.keys(s).sort().reverse();
   if(!arr.length){box.innerHTML='<div class="empty">暂无历史工资记录</div>';return;}
   const items=arr.map(m=>{const r=s[m];
+    // 串接「工资分配」：同一笔工资（计薪月=m）在分配里被怎么花掉
+    // 分配采用「使用月」视角，计薪月 = 使用月 - 1，故本工资月 m 对应分配的使用月 = shiftMonth(m,1)
+    const alUseMonth=shiftMonth(m,1);
+    const alRec=getAllocation()[alUseMonth]||{};
+    const alHasData=!!(alRec&&(Object.keys(alRec.days||{}).length||alSaveTotal(alRec)>0));
+    const aExp=alHasData?alMonthExpenseSum(alRec):0;
+    const aSv=alHasData?alSaveTotal(alRec):0;
+    const aRemain=num(r.sf)-aExp-aSv;
+    let allocDetail='';
+    if(alHasData){
+      allocDetail='<div class="alloc-in-sal">'
+        + '<div class="alloc-in-sal-h">💼 工资分配（使用月 '+alUseMonth+' · 计薪月 '+m+'）</div>'
+        + recLine('已支出（按日汇总）','¥'+money(aExp))
+        + AL_SAVE.map(function(l){return recLine('储蓄·'+l[1],'¥'+money(num(alRec.save?alRec.save[l[0]]:0)));}).join('')
+        + recLine('储蓄合计','¥'+money(aSv))
+        + recLine('结余（实发 − 支出 − 储蓄）','¥'+money(aRemain))
+        + '</div>';
+    }
     const detail=recLine('底薪','¥'+money(num(r.base)))
       +recLine('三薪工资','¥'+money(num(r.triple)))
       +recLine('绩效基数','¥'+money(num(r.perfBase)))
@@ -1057,11 +1075,12 @@ function renderSalaryList(){
       +recLine('③ 档三 &gt;15000','¥'+money(num(r.c3)))
       +recLine('应发合计','¥'+money(num(r.yf)))
       +recLine('实发工资','¥'+money(num(r.sf)))
+      + allocDetail
       + (Array.isArray(r.imgs)&&r.imgs.length? salImgsDetail(r.imgs):'');
     const html=`<div class="item">
     <div class="meta"><span>📅 ${m}</span><span class="amt">实发 ¥${money(num(r.sf))} <span class="chev">▾</span></span></div>
     <div style="font-size:11px;opacity:.7;line-height:1.7">应发 ¥${money(num(r.yf))} ｜ 绩效 ¥${money(num(r.finalPerf))}<br>
-    提成 ¥${money(num(r.commission))}（档一 ${money(num(r.c1))} ｜ 档二 ${money(num(r.c2))} ｜ 档三 ${money(num(r.c3))}）</div>
+    提成 ¥${money(num(r.commission))}（档一 ${money(num(r.c1))} ｜ 档二 ${money(num(r.c2))} ｜ 档三 ${money(num(r.c3))}）${alHasData?'<br>分配：已支出 ¥'+money(aExp)+' ｜ 储蓄 ¥'+money(aSv)+' ｜ 结余 ¥'+money(aRemain):''}</div>
     <div class="rec-detail" hidden>${detail}</div>
     <div style="margin-top:8px"><button class="del sal-del" data-month="${m}">删除该月记录</button></div>
   </div>`;
