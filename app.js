@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v75';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v76';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
 function load(key,def){
@@ -1052,7 +1052,7 @@ function renderSalaryList(){
       allocDetail='<div class="alloc-in-sal">'
         + '<div class="alloc-in-sal-h">💼 工资分配（使用月 '+alUseMonth+' · 计薪月 '+m+'）</div>'
         + recLine('已支出（按日汇总）','¥'+money(aExp))
-        + AL_SAVE.map(function(l){return recLine('储蓄·'+l[1],'¥'+money(num(alRec.save?alRec.save[l[0]]:0)));}).join('')
+        + AL_SAVE.map(function(l){return recLine('储蓄·'+l[1],'¥'+money(alSaveVal(alRec,l[0])));}).join('')
         + recLine('储蓄合计','¥'+money(aSv))
         + recLine('结余（实发 − 支出 − 储蓄）','¥'+money(aRemain))
         + '</div>';
@@ -1106,8 +1106,10 @@ function alMonthExpense(rec){
   return m;
 }
 function alMonthExpenseSum(rec){ const m=alMonthExpense(rec); return AL_EXPENSE.reduce(function(s,e){return s+num(m[e[0]]);},0); }
-// 储蓄合计：rec.save 为对象 {monthly,fund,mom,shoes}，无则按 0 计
-function alSaveTotal(rec){ const sv=rec&&rec.save&&typeof rec.save==='object'?rec.save:{}; let s=0; AL_SAVE.forEach(function(l){s+=num(sv[l[0]]);}); return s; }
+// 储蓄合计：rec.save 为对象 {monthly,fund,mom,shoes}，其中 monthly 可为数字或 {cash,alipay} 细分；无则按 0 计
+function alSaveMonthly(rec){ const sv=rec&&rec.save&&typeof rec.save==='object'?rec.save:{}; const m=sv.monthly; if(m&&typeof m==='object')return {cash:num(m.cash),alipay:num(m.alipay)}; return {cash:num(m),alipay:0}; }
+function alSaveVal(rec,key){ if(key!=='monthly'){const sv=rec&&rec.save&&typeof rec.save==='object'?rec.save:{};return num(sv[key]);} const mm=alSaveMonthly(rec); return mm.cash+mm.alipay; }
+function alSaveTotal(rec){ const sv=rec&&rec.save&&typeof rec.save==='object'?rec.save:{}; let s=0; AL_SAVE.forEach(function(l){ if(l[0]==='monthly'){const mm=alSaveMonthly(rec);s+=mm.cash+mm.alipay;} else s+=num(sv[l[0]]); }); return s; }
 function alDayGet(rec,date){ return (rec&&rec.days&&rec.days[date])?rec.days[date]:{}; }
 let alViewMonth=null;
 let alSelDate=null;
@@ -1203,7 +1205,17 @@ function renderAllocation(){
     ${sumCards}
     <div class="result" style="margin:8px 0"><div class="line"><span>支出合计</span><b class="big" id="alExpenseTotal">¥${money(expSum)}</b></div></div>
     <div class="al-save-grid">
-      ${AL_SAVE.map(function(l){return '<div class="field"><label>🐷 '+l[1]+'（同步到「我的存款·'+l[1]+'」'+wageMonth+' 计薪月）</label><input type="number" id="alSave_'+l[0]+'" step="any" value="'+((rec.save&&num(rec.save[l[0]]))||'')+'" placeholder="0"></div>';}).join('')}
+      ${AL_SAVE.map(function(l){
+        if(l[0]==='monthly'){
+          const mm=alSaveMonthly(rec);
+          return '<div class="field"><label>🐷 '+l[1]+'（同步到「我的存款·'+l[1]+'」'+wageMonth+' 计薪月 · 细分方式）</label>'
+            +'<div class="al-save-sub">'
+            +'<div class="field"><label>现金</label><input type="number" id="alSave_monthly_cash" step="any" value="'+(mm.cash||'')+'" placeholder="0"></div>'
+            +'<div class="field"><label>支付宝</label><input type="number" id="alSave_monthly_alipay" step="any" value="'+(mm.alipay||'')+'" placeholder="0"></div>'
+            +'</div></div>';
+        }
+        return '<div class="field"><label>🐷 '+l[1]+'（同步到「我的存款·'+l[1]+'」'+wageMonth+' 计薪月）</label><input type="number" id="alSave_'+l[0]+'" step="any" value="'+((rec.save&&num(rec.save[l[0]]))||'')+'" placeholder="0"></div>';
+      }).join('')}
     </div>
     <button class="btn" type="button" id="alSaveAlloc">保存分配</button>
     <div id="alCheck"></div>
@@ -1220,7 +1232,11 @@ function bindAllocation(){
   const getRec=()=>getAllocation()[monthId()]||{};
   // 对账：月度支出合计(聚合 days) + 储蓄合计 = 计薪月实发
   function curSaveTotal(){
-    let s=0; AL_SAVE.forEach(function(l){ const el=$('#alSave_'+l[0]); s+=num(el?el.value:0); }); return s;
+    let s=0; AL_SAVE.forEach(function(l){
+      const key=l[0];
+      if(key==='monthly'){ const c=$('#alSave_monthly_cash'), a=$('#alSave_monthly_alipay'); s+=num(c?c.value:0)+num(a?a.value:0); }
+      else { const el=$('#alSave_'+key); s+=num(el?el.value:0); }
+    }); return s;
   }
   function check(){
     const m=monthId(), wm=wageId();
@@ -1263,11 +1279,24 @@ function bindAllocation(){
   // 保存分配（储蓄四项 + 分别同步到四个存款台账的计薪月）
   const sb=$('#alSaveAlloc');
   if(sb){
-    AL_SAVE.forEach(function(l){ const el=$('#alSave_'+l[0]); if(el)el.addEventListener('input',check); });
+    AL_SAVE.forEach(function(l){
+      if(l[0]==='monthly'){ ['cash','alipay'].forEach(function(sub){ const el=$('#alSave_monthly_'+sub); if(el)el.addEventListener('input',check); }); }
+      else { const el=$('#alSave_'+l[0]); if(el)el.addEventListener('input',check); }
+    });
     sb.addEventListener('click',function(){
       const m=monthId(), wm=wageId();
       const s=getAllocation(); const r=s[m]||{days:{}};
-      const saveObj={}; AL_SAVE.forEach(function(l){ const el=$('#alSave_'+l[0]); saveObj[l[0]]=num(el?el.value:0); });
+      const saveObj={};
+      AL_SAVE.forEach(function(l){
+        const key=l[0];
+        if(key==='monthly'){
+          const c=$('#alSave_monthly_cash'), a=$('#alSave_monthly_alipay');
+          const cash=num(c?c.value:0), alipay=num(a?a.value:0);
+          saveObj.monthly=(cash>0||alipay>0)?{cash:cash,alipay:alipay}:0;
+        } else {
+          const el=$('#alSave_'+key); saveObj[key]=num(el?el.value:0);
+        }
+      });
       r.save=saveObj; s[m]=r; save('allocation',s);
       setAllocSavingToLedger(wm, saveObj);   // 存款/公积金/妈/鞋服预存 分别记到计薪月（钱是计薪月赚的）
       toast('分配已保存 💕'); check(); renderAllocationList();
@@ -1293,7 +1322,7 @@ function renderAllocationList(){
     const expMap=alMonthExpense(r);
     let detail='';
     AL_EXPENSE.forEach(function(e){detail+=recLine(AL_LABEL[e[0]],'¥'+money(num(expMap[e[0]])));});
-    AL_SAVE.forEach(function(l){detail+=recLine('储蓄·'+l[1],'¥'+money(num(r.save?r.save[l[0]]:0)));});
+    AL_SAVE.forEach(function(l){detail+=recLine('储蓄·'+l[1],'¥'+money(alSaveVal(r,l[0])));});
     detail+=recLine('储蓄合计','¥'+money(sv));
     detail+=recLine('支出合计','¥'+money(exp));
     detail+=recLine('总合计（支出+储蓄）','¥'+money(exp+sv));
@@ -1344,8 +1373,17 @@ function setAllocSavingToLedger(month,saveObj){
     const key=l[0];
     d[key]=asArr(d[key]);
     d[key]=d[key].filter(e=>!(e.src==='alloc'&&e.date&&e.date.startsWith(month)));
-    const amt=num(saveObj?saveObj[key]:0);
-    if(amt>0) d[key].push({id:uid(),date:month+'-01',type:'in',amount:amt,note:'工资分配·储蓄(自动同步)',src:'alloc'});
+    if(key==='monthly'){
+      // 存款储蓄按「现金 / 支付宝」细分同步，分别记账，便于「我的存款」按方式拆分展示
+      const ms=saveObj?saveObj.monthly:0;
+      let cash=0,alipay=0;
+      if(ms&&typeof ms==='object'){cash=num(ms.cash);alipay=num(ms.alipay);} else {cash=num(ms);}
+      if(cash>0) d[key].push({id:uid(),date:month+'-01',type:'in',amount:cash,note:'工资分配·储蓄(自动同步)',src:'alloc',sub:'cash'});
+      if(alipay>0) d[key].push({id:uid(),date:month+'-01',type:'in',amount:alipay,note:'工资分配·储蓄(自动同步)',src:'alloc',sub:'alipay'});
+    } else {
+      const amt=num(saveObj?saveObj[key]:0);
+      if(amt>0) d[key].push({id:uid(),date:month+'-01',type:'in',amount:amt,note:'工资分配·储蓄(自动同步)',src:'alloc'});
+    }
   });
   save('deposits',d);
 }
