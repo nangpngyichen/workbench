@@ -15,9 +15,21 @@
   <script>
     // 注册 Service Worker（支持离线 / 添加到主屏幕，长期在手机使用）
     if ('serviceWorker' in navigator) {
+      // 新版本 SW 接管后自动刷新，确保拿到最新 app.js（解决 iOS「添加到主屏幕」后卡旧版的惰性更新）
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        location.reload();
+      });
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('sw.js').catch(function () {});
       });
+      // ?fresh=1：注销旧 SW + 清空所有缓存，强制拉取最新代码（手机卡旧版时的自救入口）
+      if (location.search.indexOf('fresh=1') >= 0) {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }).then(function () {
+          if (window.caches) return caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); });
+        }).then(function () { location.reload(true); });
+      }
     }
   </script>
 </body>
