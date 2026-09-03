@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v78';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v76';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
 function load(key,def){
@@ -83,19 +83,8 @@ function asObj(x){ return (x&&typeof x==='object'&&!Array.isArray(x))?x:{}; }
   else window.addEventListener('load', registerSW);
 })();
 function save(key,val){
-  try{ localStorage.setItem(PREFIX+key,JSON.stringify(val)); return true; }
-  catch(e){ toast('⚠️ 本地存储空间不足，本次数据可能未保存，请删除部分旧图片或记录后重试'); return false; }
-}
-// 含图片数据保存：若 localStorage 配额不足，自动降级为仅保留缩略图（去掉高清原图 f），保证历史列表至少能看到图
-function saveWithImgFallback(key,obj){
-  if(save(key,obj)) return true;
-  try{
-    const stripImgs=arr=>arr.map(x=>(x&&typeof x==='object')?{t:imgThumb(x)}:x);
-    if(Array.isArray(obj)){ obj.forEach(r=>{ if(r&&Array.isArray(r.imgs)) r.imgs=stripImgs(r.imgs); }); }
-    else if(obj&&typeof obj==='object'){ for(const k in obj){ const v=obj[k]; if(v&&typeof v==='object'&&Array.isArray(v.imgs)) v.imgs=stripImgs(v.imgs); } }
-    if(save(key,obj)){ toast('⚠️ 存储空间紧张：高清原图未保存，仅保留缩略图（点开略模糊），建议清理旧图片'); return true; }
-  }catch(e){}
-  return false;
+  try{ localStorage.setItem(PREFIX+key,JSON.stringify(val)); }
+  catch(e){ toast('⚠️ 本地存储空间不足，本次数据可能未保存，请删除部分旧图片或记录后重试'); }
 }
 function num(v){const n=parseFloat(v);return isNaN(n)?0:n;}
 function money(n){return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2);}
@@ -245,7 +234,7 @@ function getScheduleMonthSummary(month){
     counts[sh]=(counts[sh]||0)+1;days++;
     if(sh==='法定三薪日')tripleDays++;
   }
-  return {counts,days,tripleDays,imgs:Array.isArray(sched.imgs)?sched.imgs:[]};
+  return {counts,days,tripleDays,imgs:sched.imgs};
 }
 function getSalaryRecord(month){return load('salary',{})[month]||null;}
 
@@ -460,7 +449,7 @@ function bindWorkload(){
       archive:num(form.archive.value),bad:num(form.bad.value),iot:num(form.iot.value),points:r.points,work:r.work,
       imgs:[...wlCurrentImgs]};
     if(idx>=0)arr[idx]=rec; else arr.push(rec);
-    saveWithImgFallback('workload',arr);
+    save('workload',arr);
     save('draft_workload',{});
     wlViewMonth=wlSelDate.slice(0,7);
     toast('已保存 '+wlSelDate+' 的工作量 💕');
@@ -507,8 +496,8 @@ function bindWorkload(){
         if(thumb&&full)wlCurrentImgs.push({t:thumb,f:full});
         if(--pending===0){wlImgInput.value='';renderWlImgs();toast('图片已添加 📷');}
       };
-      fileToResizedDataURL(f,360,0.7,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
-      fileToResizedDataURL(f,1280,0.82,u=>{if(u)full=u;after();});   // 高清原图（放大清晰）
+      fileToResizedDataURL(f,800,0.75,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
+      fileToResizedDataURL(f,3000,0.94,u=>{if(u)full=u;after();});   // 高清原图（放大清晰）
     });
   });
   const wlImgList=$('#wlImgList');
@@ -718,7 +707,7 @@ function bindSchedule(){
     const month=$('#schMonth').value;
     const sched=load('schedule',{});sched[month]=sched[month]||{};
     sched[month].imgs=[...schCurrentImgs];
-    saveWithImgFallback('schedule',sched);
+    save('schedule',sched);
   }
   renderSchImgs();
   const imgInput=$('#schImgInput');
@@ -734,8 +723,8 @@ function bindSchedule(){
         if(thumb&&full)schCurrentImgs.push({t:thumb,f:full});
         if(--pending===0){imgInput.value='';renderSchImgs();saveSchImgs();renderSchList();toast('图片已添加 📷');}
       };
-      fileToResizedDataURL(f,360,0.7,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
-      fileToResizedDataURL(f,1280,0.82,u=>{if(u)full=u;after();});   // 高清原图（放大清晰）
+      fileToResizedDataURL(f,800,0.75,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
+      fileToResizedDataURL(f,3000,0.94,u=>{if(u)full=u;after();});   // 高清原图（放大清晰）
     });
   });
   if(imgList)imgList.addEventListener('click',e=>{
@@ -769,7 +758,7 @@ function bindSchedule(){
     const sched=load('schedule',{});sched[month]=sched[month]||{};
     sched[month][selDay]={shift:$('#schShiftSel').value};
     sched[month].imgs=[...schCurrentImgs];
-    saveWithImgFallback('schedule',sched);closeSheet();render();
+    save('schedule',sched);closeSheet();render();
   });
   // 保存本月班表（显式保存按钮：提交班次与图片）
   const saveBtn=$('#schSave');
@@ -777,7 +766,7 @@ function bindSchedule(){
     const month=$('#schMonth').value;
     const sched=load('schedule',{});sched[month]=sched[month]||{};
     sched[month].imgs=[...schCurrentImgs];          // 用当前图片集整体覆盖该月图片数据
-    saveWithImgFallback('schedule',sched);
+    save('schedule',sched);
     renderSchList();                                // 立即刷新「历史每月班表」，让覆盖后的数据与图片马上可见
     toast('班表已保存 💕');
   });
@@ -808,16 +797,12 @@ function renderSchList(){
   if(!arr.length){box.innerHTML='<div class="empty">暂无历史班表记录</div>';return;}
   const items=arr.map(m=>{
     const sm=getScheduleMonthSummary(m);
-    const imgsArr=Array.isArray(sm.imgs)?sm.imgs:[];
     let detail=recLine('排班总天数',sm.days+' 天')+recLine('三薪上班天数',sm.tripleDays+' 天');
     SHIFTS.forEach(sh=>{ if(sm.counts[sh]) detail+=recLine(sh,sm.counts[sh]+' 天'); });
-    detail+=(imgsArr.length)?salImgsDetail(imgsArr):'';
-    // 折叠态直接展示图片缩略图 + 张数提示，让历史记录一眼可见图片（无需展开明细）
-    const inlineImgs=imgsArr.length?'<div class="sal-img-grid sch-list-imgs">'+imgsArr.map((o,i)=>`<div class="sal-img-thumb"><img src="${imgThumb(o)}" data-full="${imgFull(o)}" alt="凭证${i+1}"></div>`).join('')+'</div>':'';
+    detail+=(Array.isArray(sm.imgs)&&sm.imgs.length)?salImgsDetail(sm.imgs):'';
     const html=`<div class="item">
       <div class="meta"><span>📅 ${m}</span><span class="amt">${sm.days} 天 <span class="chev">▾</span></span></div>
-      <div style="font-size:11px;opacity:.7;line-height:1.7">三薪 ${sm.tripleDays} 天 ｜ 共排 ${sm.days} 天${imgsArr.length?' ｜ 📷 '+imgsArr.length+' 张':''}</div>
-      ${inlineImgs}
+      <div style="font-size:11px;opacity:.7;line-height:1.7">三薪 ${sm.tripleDays} 天 ｜ 共排 ${sm.days} 天</div>
       <div class="rec-detail" hidden>${detail}</div>
       <div style="margin-top:8px"><button class="del sch-del" data-month="${m}">删除该月班表</button></div>
     </div>`;
@@ -967,8 +952,8 @@ function bindSalary(){
         if(thumb&&full)salCurrentImgs.push({t:thumb,f:full});
         if(--pending===0){imgInput.value='';renderSalImgs();toast('图片已添加 📷');}
       };
-      fileToResizedDataURL(f,360,0.7,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
-      fileToResizedDataURL(f,1280,0.82,u=>{if(u)full=u;after();});   // 高清原图（放大清晰）
+      fileToResizedDataURL(f,800,0.75,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
+      fileToResizedDataURL(f,3000,0.94,u=>{if(u)full=u;after();});   // 高清原图（放大清晰）
     });
   });
   if(imgList)imgList.addEventListener('click',e=>{
@@ -1027,7 +1012,7 @@ function bindSalary(){
       finalPerf:r.finalPerf,commission:r.commission,c1:r.c1,c2:r.c2,c3:r.c3,yf:r.yf,sf:r.sf,
       imgs:[...salCurrentImgs]
     };
-    const s=load('salary',{});s[month]=rec;saveWithImgFallback('salary',s);
+    const s=load('salary',{});s[month]=rec;save('salary',s);
     toast('工资已保存 💕');renderSalaryList();
   });
   calc();renderSalaryList();bindMonthGroupToggle('#salList');enableRecDetailToggle('#salList');
