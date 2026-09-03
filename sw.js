@@ -6,7 +6,7 @@
    - 只缓存「成功(200)」的响应，绝不缓存错误页 / 空白页，避免手机端白屏。
    - 图标等静态资源：缓存优先（几乎不变，省流量），同样只缓存 200。
    - 缓存版本号：每次大改请 +1，强制旧缓存失效。 */
-const CACHE = 'workbench-v77';
+const CACHE = 'workbench-v78';
 // 相对路径：兼容 GitHub Pages 子路径（/workbench/）部署，避免预缓存 404
 const SHELL = ['./', './index.html', './app.js', './styles.css', './manifest.webmanifest'];
 const ICONS = [
