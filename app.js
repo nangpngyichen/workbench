@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v76';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v77';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
 function load(key,def){
@@ -457,6 +457,11 @@ function bindWorkload(){
   });
   renderWorkloadList();enableRecDetailToggle('#wlList');renderWorkloadMonthList();bindMonthGroupToggle('#wlMonthList');renderWorkloadCalendar();
   enableRecDetailToggle('#wlMonthList');
+  // 历史图片灯箱：点击缩略图打开大图（工作量历史此前缺失该绑定，导致图片点不开）
+  const wlListEl=$('#wlList');
+  if(wlListEl)wlListEl.addEventListener('click',e=>{const t=e.target.closest('.sal-img-thumb img');if(t)openImgLightbox(t.dataset.full||t.src);});
+  const wlMonthListEl=$('#wlMonthList');
+  if(wlMonthListEl)wlMonthListEl.addEventListener('click',e=>{const t=e.target.closest('.sal-img-thumb img');if(t)openImgLightbox(t.dataset.full||t.src);});
   const wlToggle=$('#wlListToggle');
   if(wlToggle)wlToggle.addEventListener('click',()=>{
     wlListCollapsed=!wlListCollapsed;
