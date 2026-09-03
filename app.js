@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v76';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v77';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
 function load(key,def){
@@ -234,7 +234,7 @@ function getScheduleMonthSummary(month){
     counts[sh]=(counts[sh]||0)+1;days++;
     if(sh==='法定三薪日')tripleDays++;
   }
-  return {counts,days,tripleDays,imgs:sched.imgs};
+  return {counts,days,tripleDays,imgs:Array.isArray(sched.imgs)?sched.imgs:[]};
 }
 function getSalaryRecord(month){return load('salary',{})[month]||null;}
 
@@ -797,12 +797,16 @@ function renderSchList(){
   if(!arr.length){box.innerHTML='<div class="empty">暂无历史班表记录</div>';return;}
   const items=arr.map(m=>{
     const sm=getScheduleMonthSummary(m);
+    const imgsArr=Array.isArray(sm.imgs)?sm.imgs:[];
     let detail=recLine('排班总天数',sm.days+' 天')+recLine('三薪上班天数',sm.tripleDays+' 天');
     SHIFTS.forEach(sh=>{ if(sm.counts[sh]) detail+=recLine(sh,sm.counts[sh]+' 天'); });
-    detail+=(Array.isArray(sm.imgs)&&sm.imgs.length)?salImgsDetail(sm.imgs):'';
+    detail+=(imgsArr.length)?salImgsDetail(imgsArr):'';
+    // 折叠态直接展示图片缩略图 + 张数提示，让历史记录一眼可见图片（无需展开明细）
+    const inlineImgs=imgsArr.length?'<div class="sal-img-grid sch-list-imgs">'+imgsArr.map((o,i)=>`<div class="sal-img-thumb"><img src="${imgThumb(o)}" data-full="${imgFull(o)}" alt="凭证${i+1}"></div>`).join('')+'</div>':'';
     const html=`<div class="item">
       <div class="meta"><span>📅 ${m}</span><span class="amt">${sm.days} 天 <span class="chev">▾</span></span></div>
-      <div style="font-size:11px;opacity:.7;line-height:1.7">三薪 ${sm.tripleDays} 天 ｜ 共排 ${sm.days} 天</div>
+      <div style="font-size:11px;opacity:.7;line-height:1.7">三薪 ${sm.tripleDays} 天 ｜ 共排 ${sm.days} 天${imgsArr.length?' ｜ 📷 '+imgsArr.length+' 张':''}</div>
+      ${inlineImgs}
       <div class="rec-detail" hidden>${detail}</div>
       <div style="margin-top:8px"><button class="del sch-del" data-month="${m}">删除该月班表</button></div>
     </div>`;
