@@ -183,6 +183,9 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(48%) sepia(60%
 .result .line:last-child{border-bottom:none;}
 .result .line b{font-weight:500;}
 .result .big{font-size:20px;font-weight:500;color:var(--danger);}
+.result .line.hl{margin-top:6px;padding:8px 10px;border:none;border-radius:12px;background:linear-gradient(135deg,rgba(255,158,196,.20),rgba(255,200,221,.30));box-shadow:0 2px 8px rgba(255,158,196,.18);}
+.result .line.hl b{font-weight:600;}
+.result .line.hl .big{font-size:18px;}
 /* 易豪存款总览：各台账明细紧凑排版（余额/存入/取出分两行右对齐，避免一行拥挤换行） */
 .yh-ledger-line{align-items:flex-start;padding:8px 0;}
 .yh-ledger-line .yh-name{font-size:13px;white-space:nowrap;padding-top:2px;min-width:3.5em;}
