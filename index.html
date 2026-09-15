@@ -10,27 +10,62 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="updBar" class="upd-bar" hidden>
+    🎉 发现新版本 <b id="updVer"></b>，<button id="updBtn" class="upd-btn">立即更新</button>
+    <button id="updSkip" class="upd-skip">稍后</button>
+  </div>
   <div class="app"></div>
   <script src="app.js"></script>
   <script>
-    // 注册 Service Worker（支持离线 / 添加到主屏幕，长期在手机使用）
-    if ('serviceWorker' in navigator) {
-      // 新版本 SW 接管后自动刷新，确保拿到最新 app.js（解决 iOS「添加到主屏幕」后卡旧版的惰性更新）
-      navigator.serviceWorker.addEventListener('controllerchange', function () {
-        location.reload();
-      });
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js').catch(function () {});
-      });
-      // ?fresh=1：注销旧 SW + 清空所有缓存，强制拉取最新代码（手机卡旧版时的自救入口）
-      if (location.search.indexOf('fresh=1') >= 0) {
-        navigator.serviceWorker.getRegistrations().then(function (regs) {
-          return Promise.all(regs.map(function (r) { return r.unregister(); }));
-        }).then(function () {
-          if (window.caches) return caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); });
-        }).then(function () { location.reload(true); });
+    // ===== 更新机制（不依赖 app.js 版本，确保旧版也能强制更新）=====
+    (function () {
+      var PAGE_VER = 'v81';
+      var bar = document.getElementById('updBar');
+      var btn = document.getElementById('updBtn');
+      var skip = document.getElementById('updSkip');
+      var verEl = document.getElementById('updVer');
+
+      // 强制更新：注销所有 SW + 清空缓存 + 用 cache-bust URL 重新拉取
+      function doUpdate() {
+        Promise.resolve()
+          .then(function () { return navigator.serviceWorker ? navigator.serviceWorker.getRegistrations() : []; })
+          .then(function (regs) { return Promise.all((regs || []).map(function (r) { return r.unregister(); })); })
+          .then(function () { return window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : null; })
+          .then(function () { location.href = location.pathname + '?fresh=' + Date.now(); })
+          .catch(function () { location.href = location.pathname + '?fresh=' + Date.now(); });
       }
-    }
+      if (btn) btn.addEventListener('click', doUpdate);
+      if (skip) skip.addEventListener('click', function () { bar.hidden = true; });
+
+      // 注册 Service Worker（支持离线 / 添加到主屏幕，长期在手机使用）
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('controllerchange', function () { location.reload(); });
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('sw.js').catch(function () {});
+        });
+        // ?fresh=...：注销旧 SW + 清空所有缓存，强制拉取最新代码（自救入口，兼容 fresh=1 与 fresh=时间戳）
+        if (/[?&]fresh=/.test(location.search)) {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (r) { return r.unregister(); }));
+          }).then(function () {
+            if (window.caches) return caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); });
+          }).then(function () { location.reload(true); });
+        }
+      }
+
+      // 轮询检测新版本：直接拉取 app.js（带 cache-bust），读取里面的 APP_VER
+      // 不依赖 SW，确保旧版也能发现并提示更新
+      if (/[?&]fresh=/.test(location.search)) {
+        // 刚走完更新流程，本次不检测
+      } else {
+        setTimeout(function () {
+          fetch('app.js?_t=' + Date.now()).then(function (r) { return r.text(); }).then(function (t) {
+            var m = t.match(/APP_VER='(v\d+)'/);
+            if (m && m[1] && m[1] !== PAGE_VER) { verEl.textContent = m[1]; bar.hidden = false; }
+          }).catch(function () {});
+        }, 1500);
+      }
+    })();
   </script>
 </body>
 </html>
