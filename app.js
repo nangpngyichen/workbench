@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v80';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v81';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -541,11 +541,11 @@ function renderWorkloadList(){
       +recLine('当日总积分',pF(num(r.points))+' 分')
       +recLine('当日总工作量',pF(num(r.work)))
       +recLine('当日提成（按积分占比分摊）',dw.hasSalary?('¥'+money(dayCommission)):'先到「每月工资组成」保存本月工资')
-      +recLine('💰 当日工资',('¥'+money(dayWage)+'/天')+(dw.hasSalary?'':'（固定日薪待工资组成保存后计算）'))
+      +recLine('💰 今日挣多少钱',dw.hasSalary?('¥'+money(dayWage)+' ＝ 固定 '+money(dw.dailyFixed)+' ＋ 提成 '+money(dayCommission)):'（待工资组成保存后计算）')
       + (Array.isArray(r.imgs)&&r.imgs.length? salImgsDetail(r.imgs):'');
     return `<div class="item">
     <div class="meta"><span>📆 ${r.date}</span><span class="amt">${pF(r.points)} 分 <span class="chev">▾</span></span></div>
-    <div style="font-size:11px;opacity:.7">工单${r.ticket} 邮件${r.mail} 备档${r.archive} 不良${r.bad} 物联网${r.iot} ｜ 工作量 ${pF(r.work)} ｜ 💰 ${money(dayWage)}/天</div>
+    <div style="font-size:11px;opacity:.7">工单${r.ticket} 邮件${r.mail} 备档${r.archive} 不良${r.bad} 物联网${r.iot} ｜ 工作量 ${pF(r.work)} ｜ 今日挣 ¥${money(dayWage)}</div>
     <div class="rec-detail" hidden>${detail}</div>
     <div style="margin-top:6px"><button class="del" data-del="${r.id}">删除</button></div>
   </div>`;}).join('');
@@ -572,7 +572,7 @@ function renderWorkloadMonthList(){
       recs.forEach(r=>{ if(Array.isArray(r.imgs)) allImgs.push(...r.imgs); });
       const dw=dayWageInfo(m);
       const detail=recs.length
-        ? recs.map(r=>{ const dc=dw.monthPoints>0?num(r.points)/dw.monthPoints*dw.monthCommission:0; const dwg=dw.dailyFixed+dc; return recLine(r.date,'工单 '+pF(num(r.ticket))+' ｜ 积分 '+pF(num(r.points))+' 分 ｜ 💰 '+money(dwg)); }).join('')
+        ? recs.map(r=>{ const dc=dw.monthPoints>0?num(r.points)/dw.monthPoints*dw.monthCommission:0; const dwg=dw.dailyFixed+dc; return recLine(r.date,'工单 '+pF(num(r.ticket))+' ｜ 积分 '+pF(num(r.points))+' 分 ｜ 今日挣 ¥'+money(dwg)); }).join('')
           + (allImgs.length? salImgsDetail(allImgs):'')
         : '<div class="dline"><span class="dlabel">提示</span><span class="dval">本月暂无每日记录</span></div>';
       return `<div class="item" data-month="${m}"><div class="meta">
@@ -1030,7 +1030,7 @@ function bindSalary(){
       <div class="line"><span>应发合计</span><b>${money(yf)}</b></div>
       <div class="line"><span>实发工资</span><b class="big">${money(sf)}</b></div>
       <div class="line hl"><span>💰 每日固定工资（固定组成 ÷ ${divDays} 天，提成不摊）</span><b class="big">¥${money(dailyFixed)}/天</b></div>
-      <div class="line sm"><span>提成按每日积分单独计算</span><b>见「每月工作量」每日记录</b></div>`;
+      <div class="line sm"><span>提成逐日不同，按天算「今日挣多少钱（固定＋提成）」</span><b>见「每月工作量」每日记录</b></div>`;
     return {finalPerf,commission,yf,sf,dailyFixed,divDays,c1:com.c1,c2:com.c2,c3:com.c3};
   }
   form.addEventListener('input',calc);
