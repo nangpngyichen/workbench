@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v79';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v80';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -528,7 +528,10 @@ function renderWorkloadList(){
   const arr=load('workload',[]).filter(r=>r.date&&r.date.startsWith(month)).slice().sort((a,b)=>b.date.localeCompare(a.date));
   const box=$('#wlList');if(!box)return;
   if(!arr.length){box.innerHTML='<div class="empty">还没有记录哦～</div>';return;}
+  const dw=dayWageInfo(month);
   box.innerHTML=arr.map(r=>{
+    const dayCommission=dw.monthPoints>0?num(r.points)/dw.monthPoints*dw.monthCommission:0;
+    const dayWage=dw.dailyFixed+dayCommission;
     const detail=recLine('日期',r.date)
       +recLine('工单量',pF(num(r.ticket)))
       +recLine('邮件量',pF(num(r.mail)))
@@ -537,10 +540,12 @@ function renderWorkloadList(){
       +recLine('物联网量',pF(num(r.iot)))
       +recLine('当日总积分',pF(num(r.points))+' 分')
       +recLine('当日总工作量',pF(num(r.work)))
+      +recLine('当日提成（按积分占比分摊）',dw.hasSalary?('¥'+money(dayCommission)):'先到「每月工资组成」保存本月工资')
+      +recLine('💰 当日工资',('¥'+money(dayWage)+'/天')+(dw.hasSalary?'':'（固定日薪待工资组成保存后计算）'))
       + (Array.isArray(r.imgs)&&r.imgs.length? salImgsDetail(r.imgs):'');
     return `<div class="item">
     <div class="meta"><span>📆 ${r.date}</span><span class="amt">${pF(r.points)} 分 <span class="chev">▾</span></span></div>
-    <div style="font-size:11px;opacity:.7">工单${r.ticket} 邮件${r.mail} 备档${r.archive} 不良${r.bad} 物联网${r.iot} ｜ 工作量 ${pF(r.work)}</div>
+    <div style="font-size:11px;opacity:.7">工单${r.ticket} 邮件${r.mail} 备档${r.archive} 不良${r.bad} 物联网${r.iot} ｜ 工作量 ${pF(r.work)} ｜ 💰 ${money(dayWage)}/天</div>
     <div class="rec-detail" hidden>${detail}</div>
     <div style="margin-top:6px"><button class="del" data-del="${r.id}">删除</button></div>
   </div>`;}).join('');
@@ -565,8 +570,9 @@ function renderWorkloadMonthList(){
       const days=recs.length;
       const allImgs=[];
       recs.forEach(r=>{ if(Array.isArray(r.imgs)) allImgs.push(...r.imgs); });
+      const dw=dayWageInfo(m);
       const detail=recs.length
-        ? recs.map(r=>recLine(r.date,'工单 '+pF(num(r.ticket))+' ｜ 积分 '+pF(num(r.points))+' 分')).join('')
+        ? recs.map(r=>{ const dc=dw.monthPoints>0?num(r.points)/dw.monthPoints*dw.monthCommission:0; const dwg=dw.dailyFixed+dc; return recLine(r.date,'工单 '+pF(num(r.ticket))+' ｜ 积分 '+pF(num(r.points))+' 分 ｜ 💰 '+money(dwg)); }).join('')
           + (allImgs.length? salImgsDetail(allImgs):'')
         : '<div class="dline"><span class="dlabel">提示</span><span class="dval">本月暂无每日记录</span></div>';
       return `<div class="item" data-month="${m}"><div class="meta">
@@ -902,6 +908,26 @@ function computeCommission(points,coef){
   const c3=b3/60*21*coef;
   return {c1,c2,c3,total:c1+c2+c3};
 }
+// 计算某月「分摊到每天」的天数基准：优先排班天数，其次工作量录入天数，最后退化为当月自然天数
+function getDivisorDays(month){
+  const wst=getScheduleStats(month);const wd=wst.days;
+  if(wd>0)return wd;
+  const wlDays=load('workload',[]).filter(r=>r.date&&r.date.startsWith(month)).length;
+  if(wlDays>0)return wlDays;
+  return new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();
+}
+// 某月每日工资信息（用于工作量每日记录）：固定组成平摊到每天 + 当日提成按积分占比分摊
+function dayWageInfo(month){
+  const salRec=load('salary',{})[month];
+  const coef=salRec?num(salRec.coef):1;
+  const monthPoints=getWorkloadMonthPoints(month);
+  const monthCommission=computeCommission(monthPoints,coef).total;
+  const yf=salRec?num(salRec.yf):0;
+  const fixedMonthly=yf-monthCommission;          // 固定组成总额（不含提成）
+  const divDays=getDivisorDays(month);
+  const dailyFixed=divDays>0?fixedMonthly/divDays:0;
+  return {monthPoints,monthCommission,divDays,dailyFixed,hasSalary:!!salRec};
+}
 // 将图片文件压缩后转为 dataURL（限制最长边，避免 localStorage 爆容量）
 function fileToResizedDataURL(file,maxDim,quality,cb){
   if(typeof quality==='function'){cb=quality;quality=0.85;}
@@ -988,10 +1014,10 @@ function bindSalary(){
     const commission=com.total;
     const yf=base+triple+finalPerf+commission+seniority+post+reward+full-deduct;
     const sf=yf-ins-tax;
-    // 每日工资：实发 ÷ 当月自然天数；若有排班再给一个「每个排班日」参考值
-    const dim=new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();
-    const perDay=sf>0?sf/dim:0;
-    const wst=getScheduleStats(month);const wd=wst.days;const perWork=wd>0?sf/wd:0;
+    // 每日固定工资：固定组成（不含提成）÷ 分摊天数；提成逐日不同，单独保留在「提成」项，不摊入每天
+    const divDays=getDivisorDays(month);
+    const fixedMonthly=yf-commission;
+    const dailyFixed=fixedMonthly>0?fixedMonthly/divDays:0;
     $('#salResult').innerHTML=`
       <div class="line"><span>最终绩效工资(基数×系数)</span><b>${money(finalPerf)}</b></div>
       <div class="line"><span>提成(本月积分 ${pF(points)})</span><b>${money(commission)}</b></div>
@@ -1003,9 +1029,9 @@ function bindSalary(){
       </div>
       <div class="line"><span>应发合计</span><b>${money(yf)}</b></div>
       <div class="line"><span>实发工资</span><b class="big">${money(sf)}</b></div>
-      <div class="line hl"><span>💰 每日工资（实发 ÷ 本月 ${dim} 天）</span><b class="big">¥${money(perDay)}/天</b></div>
-      ${wd>0?`<div class="line sm"><span>每个排班日（实发 ÷ ${wd} 排班天）</span><b>¥${money(perWork)}/天</b></div>`:''}`;
-    return {finalPerf,commission,yf,sf,perDay,perWork,dim,wd,c1:com.c1,c2:com.c2,c3:com.c3};
+      <div class="line hl"><span>💰 每日固定工资（固定组成 ÷ ${divDays} 天，提成不摊）</span><b class="big">¥${money(dailyFixed)}/天</b></div>
+      <div class="line sm"><span>提成按每日积分单独计算</span><b>见「每月工作量」每日记录</b></div>`;
+    return {finalPerf,commission,yf,sf,dailyFixed,divDays,c1:com.c1,c2:com.c2,c3:com.c3};
   }
   form.addEventListener('input',calc);
   const salPrev=$('#salPrev'),salNext=$('#salNext');
@@ -1095,7 +1121,7 @@ function renderSalaryList(){
       +recLine('③ 档三 &gt;15000','¥'+money(num(r.c3)))
       +recLine('应发合计','¥'+money(num(r.yf)))
       +recLine('实发工资','¥'+money(num(r.sf)))
-      +recLine('💰 每日工资','¥'+money((num(r.sf)>0?num(r.sf)/new Date(Number(m.slice(0,4)),Number(m.slice(5,7)),0).getDate():0))+'/天')
+      +recLine('💰 每日固定工资','¥'+money(((num(r.yf)-num(r.commission))>0?(num(r.yf)-num(r.commission))/getDivisorDays(m):0))+'/天')
       + allocDetail
       + (Array.isArray(r.imgs)&&r.imgs.length? salImgsDetail(r.imgs):'');
     const html=`<div class="item">
