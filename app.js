@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v78';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v79';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -988,6 +988,10 @@ function bindSalary(){
     const commission=com.total;
     const yf=base+triple+finalPerf+commission+seniority+post+reward+full-deduct;
     const sf=yf-ins-tax;
+    // 每日工资：实发 ÷ 当月自然天数；若有排班再给一个「每个排班日」参考值
+    const dim=new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();
+    const perDay=sf>0?sf/dim:0;
+    const wst=getScheduleStats(month);const wd=wst.days;const perWork=wd>0?sf/wd:0;
     $('#salResult').innerHTML=`
       <div class="line"><span>最终绩效工资(基数×系数)</span><b>${money(finalPerf)}</b></div>
       <div class="line"><span>提成(本月积分 ${pF(points)})</span><b>${money(commission)}</b></div>
@@ -998,8 +1002,10 @@ function bindSalary(){
         <div class="line"><span>提成合计</span><b>${money(com.total)}</b></div>
       </div>
       <div class="line"><span>应发合计</span><b>${money(yf)}</b></div>
-      <div class="line"><span>实发工资</span><b class="big">${money(sf)}</b></div>`;
-    return {finalPerf,commission,yf,sf,c1:com.c1,c2:com.c2,c3:com.c3};
+      <div class="line"><span>实发工资</span><b class="big">${money(sf)}</b></div>
+      <div class="line hl"><span>💰 每日工资（实发 ÷ 本月 ${dim} 天）</span><b class="big">¥${money(perDay)}/天</b></div>
+      ${wd>0?`<div class="line sm"><span>每个排班日（实发 ÷ ${wd} 排班天）</span><b>¥${money(perWork)}/天</b></div>`:''}`;
+    return {finalPerf,commission,yf,sf,perDay,perWork,dim,wd,c1:com.c1,c2:com.c2,c3:com.c3};
   }
   form.addEventListener('input',calc);
   const salPrev=$('#salPrev'),salNext=$('#salNext');
@@ -1089,6 +1095,7 @@ function renderSalaryList(){
       +recLine('③ 档三 &gt;15000','¥'+money(num(r.c3)))
       +recLine('应发合计','¥'+money(num(r.yf)))
       +recLine('实发工资','¥'+money(num(r.sf)))
+      +recLine('💰 每日工资','¥'+money((num(r.sf)>0?num(r.sf)/new Date(Number(m.slice(0,4)),Number(m.slice(5,7)),0).getDate():0))+'/天')
       + allocDetail
       + (Array.isArray(r.imgs)&&r.imgs.length? salImgsDetail(r.imgs):'');
     const html=`<div class="item">
