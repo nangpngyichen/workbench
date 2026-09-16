@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v86';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v87';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -923,39 +923,35 @@ function getDivisorDays(month){
   const wd=getWorkDays(month);
   return wd>0? wd : 23;
 }
-// 每月工资模块「每日挣多少」明细：分摊固定 + 当天三薪 + 当天提成(边际，按累计积分达档)
-// 当天提成＝computeCommission(含今天累计积分) − computeCommission(昨天累计积分)，
-// 即今天的工作量把当月累计积分推到哪一档，超出部分按该档费率计；各日提成之和＝本月提成合计
-function renderDayEarnings(month, dailyFixed, triple, coef){
+// 每月工资模块「今日挣多少」：仅展示当天（真实日期）这一个金额
+// ＝ 分摊固定 ＋ 当天三薪(若今天是法定三薪日) ＋ 当天提成(边际·按累计积分达档，累计到今天)
+// 当天提成＝computeCommission(累计到今天含今天) − computeCommission(累计到昨天)，
+// 即今天工作量把当月累计积分推到哪一档、超出部分按该档费率计（档一 9000-11000→15/60、档二 11000-15000→18/60、档三 >15000→21/60，均×系数）
+function renderTodayEarnings(month, dailyFixed, triple, coef){
+  const now=new Date();
+  const tY=now.getFullYear(), tM=String(now.getMonth()+1).padStart(2,'0'), tD=String(now.getDate()).padStart(2,'0');
+  const todayStr=tY+'-'+tM+'-'+tD;
+  if(month!==(tY+'-'+tM)){
+    return '<div class="today-earn note">「今日挣多少」仅在选择本月（'+tY+'-'+tM+'）时显示。请切到当前月份查看今天的金额。</div>';
+  }
   const sched=load('schedule',{})[month]||{};
   const tripleDays=getScheduleStats(month).tripleDays;
   const dayTriple=tripleDays>0? triple/tripleDays : 0;
-  const arr=load('workload',[]).filter(r=>r.date&&r.date.startsWith(month)).slice().sort((a,b)=>a.date<b.date?-1:1);
-  if(!arr.length){
-    return '<div class="day-earn empty">本月还没录入「每月工作量」，无法计算每日提成。先到「每月工作量」记录每天工单后，这里会逐日显示「今日挣多少钱（固定 ＋ 当天三薪 ＋ 当天提成）」。</div>';
-  }
-  let cum=0, rows='', sumWage=0;
-  arr.forEach(r=>{
-    const before=cum;
-    cum+=num(r.points);
-    const dayCommission=computeCommission(cum,coef).total - computeCommission(before,coef).total;
-    const isTriple=sched[r.date]&&sched[r.date].shift==='法定三薪日';
-    const dTri=isTriple?dayTriple:0;
-    const dayWage=dailyFixed+dTri+dayCommission;
-    sumWage+=dayWage;
-    rows+=`<div class="de-row${isTriple?' de-triple':''}">`
-      +`<span class="de-date">${r.date}${isTriple?' 🌟三薪日':''}</span>`
-      +`<span class="de-pts">${pF(num(r.points))}分</span>`
-      +`<span class="de-detail">固定 ${money(dailyFixed)}${isTriple?' ＋ 三薪 '+money(dTri):''} ＋ 提成 ${money(dayCommission)}</span>`
-      +`<span class="de-amt">¥${money(dayWage)}</span>`
-    +`</div>`;
-  });
-  return `<div class="day-earn">`
-    +`<div class="day-earn-h">💰 每日挣多少钱（固定 ${money(dailyFixed)}/天 ＋ 当天三薪 ＋ 当天提成·按累计积分达档）</div>`
-    +`<div class="day-earn-sub">提成按「当月累计积分」分段计：今日工作量把累计积分推到哪一档，超出部分按该档费率计（档一 9000-11000→15/60、档二 11000-15000→18/60、档三 &gt;15000→21/60，均×系数）。各日提成之和＝本月提成合计。</div>`
-    +rows
-    +`<div class="de-row de-total"><span class="de-date">全月合计</span><span class="de-pts"></span><span class="de-detail"></span><span class="de-amt">¥${money(sumWage)}</span></div>`
-  +`</div>`;
+  const arr=load('workload',[]).filter(r=>r.date&&r.date.startsWith(month)&&r.date<=todayStr).slice().sort((a,b)=>a.date<b.date?-1:1);
+  let cum=0; arr.forEach(r=>{ cum+=num(r.points); });
+  const beforeArr=arr.filter(r=>r.date<todayStr); let before=0; beforeArr.forEach(r=>{ before+=num(r.points); });
+  const dayCommission=computeCommission(cum,coef).total - computeCommission(before,coef).total;
+  const isTriple=sched[todayStr]&&sched[todayStr].shift==='法定三薪日';
+  const dTri=isTriple?dayTriple:0;
+  const dayWage=dailyFixed+dTri+dayCommission;
+  return '<div class="today-earn">'
+    +'<div class="today-earn-h">💰 今日挣多少钱（'+todayStr+'）</div>'
+    +'<div class="today-earn-body">'
+    +recLine('分摊固定工资','¥'+money(dailyFixed)+'（固定组成 ÷ 排班 '+getDivisorDays(month)+' 天）')
+    +(isTriple?recLine('当天三薪（法定三薪日）','¥'+money(dTri)):'')
+    +recLine('当天提成（累计积分达档·含今天）','¥'+money(dayCommission)+'（累计 '+pF(cum)+' 分，昨日止 '+pF(before)+' 分）')
+    +recLine('💰 今日合计','¥'+money(dayWage))
+    +'</div></div>';
 }
 // 将图片文件压缩后转为 dataURL（限制最长边，避免 localStorage 爆容量）
 function fileToResizedDataURL(file,maxDim,quality,cb){
@@ -1061,7 +1057,7 @@ function bindSalary(){
       <div class="line"><span>实发工资</span><b class="big">${money(sf)}</b></div>
       <div class="line hl"><span>💰 每日固定工资（固定组成【不含三薪·不含提成】 ÷ 排班 ${divDays} 天）</span><b class="big">¥${money(dailyFixed)}/天</b></div>
       <div class="line sm"><span>三薪仅在「法定三薪日」当天算、提成按累计积分达档算，二者均不摊入每天（固定组成已剔除三薪与提成）</span><b>仅算固定日薪</b></div>`
-      + renderDayEarnings(month, dailyFixed, triple, coef);
+      + renderTodayEarnings(month, dailyFixed, triple, coef);
     return {finalPerf,commission,yf,sf,dailyFixed,divDays,c1:com.c1,c2:com.c2,c3:com.c3};
   }
   form.addEventListener('input',calc);
