@@ -98,11 +98,15 @@ input,select{font-family:inherit;}
 .ver-strip b{color:var(--danger,#e86a92);font-weight:600;letter-spacing:.5px;}
 .ver-strip .btn.xs{padding:3px 8px;font-size:11px;}
 
-/* 新版本检测横幅（常驻，确保旧版也能强制更新） */
+/* 新版本检测横幅：默认隐藏，检测到新版本才显示 */
 .upd-bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:8px;
   padding:8px 12px;font-size:12px;color:#7a2e4a;
   background:linear-gradient(135deg,#FFE0EC,#FFC2DA);
   border-bottom:1px solid #FFAFC9;box-shadow:0 2px 8px rgba(232,106,146,.22);}
+/* 关键：hidden 属性必须真正隐藏。.upd-bar 设了 display:flex，会盖过浏览器默认的
+   [hidden]{display:none}，所以这里用更高优先级的 .upd-bar[hidden] 强制隐藏，
+   否则横幅会一直显示且版本号为空（表现为“点开链接什么都没有”）。 */
+.upd-bar[hidden]{display:none;}
 .upd-bar b{font-weight:600;color:#E86A92;letter-spacing:.5px;}
 .upd-btn{margin-left:auto;border:none;border-radius:10px;padding:6px 12px;font-size:12px;font-weight:500;
   background:linear-gradient(180deg,#FF8FB8,#FF6FA3);color:#fff;box-shadow:var(--shadow-soft);cursor:pointer;}
