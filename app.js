@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v88';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v89';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -1054,9 +1054,7 @@ function bindSalary(){
       </div>
       <div class="line"><span>三薪工资</span><b>${money(triple)}</b></div>
       <div class="line"><span>应发合计</span><b>${money(yf)}</b></div>
-      <div class="line"><span>实发工资</span><b class="big">${money(sf)}</b></div>
-      <div class="line hl"><span>💰 每日固定工资（固定组成【不含三薪·不含提成】 ÷ 排班 ${divDays} 天）</span><b class="big">¥${money(dailyFixed)}/天</b></div>
-      <div class="line sm"><span>三薪仅在「法定三薪日」当天算、提成按当天工作量算，二者均不摊入每天（固定组成已剔除三薪与提成）</span><b>仅算固定日薪</b></div>`
+      <div class="line"><span>实发工资</span><b class="big">${money(sf)}</b></div>`
       + renderTodayEarnings(month, dailyFixed, triple, coef);
     return {finalPerf,commission,yf,sf,dailyFixed,divDays,c1:com.c1,c2:com.c2,c3:com.c3};
   }
