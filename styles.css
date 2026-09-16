@@ -384,18 +384,12 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(48%) sepia(60%
 .img-lightbox .img-lb-close{position:fixed;top:14px;right:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.92);color:#444;font-size:22px;font-weight:500;display:flex;align-items:center;justify-content:center;z-index:101;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;}
 .img-lightbox .img-lb-hint{position:fixed;bottom:14px;left:0;right:0;text-align:center;color:#fff;font-size:11px;opacity:.8;z-index:101;pointer-events:none;}
 
-/* 工资模块「每日挣多少钱」明细 */
-.day-earn{margin-top:12px;border:1px solid #FFD0E0;border-radius:12px;overflow:hidden;background:#FFF6FA;}
-.day-earn.empty{padding:12px;font-size:12px;color:#9a6b7d;background:#FFF0F6;}
-.day-earn-h{padding:9px 12px;font-size:13px;font-weight:600;color:#b23a6a;background:linear-gradient(135deg,#FFE3EE,#FFD0E0);}
-.day-earn-sub{padding:7px 12px;font-size:11px;line-height:1.6;color:#8a6b76;background:#FFF6FA;border-bottom:1px dashed #F3C6D8;}
-.de-row{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px;border-bottom:1px solid #FBE4EE;}
-.de-row:last-child{border-bottom:none;}
-.de-date{width:108px;flex:none;color:#555;font-variant-numeric:tabular-nums;}
-.de-pts{width:58px;flex:none;text-align:right;color:#7a8;opacity:.85;}
-.de-detail{flex:1;color:#8a6b76;font-size:11px;}
-.de-amt{width:92px;flex:none;text-align:right;font-weight:600;color:#c0397a;font-variant-numeric:tabular-nums;}
-.de-row.de-triple{background:#FFF0D6;}
-.de-row.de-triple .de-date{color:#d98324;font-weight:600;}
-.de-row.de-total{background:#FFE3EE;font-weight:700;}
-.de-row.de-total .de-amt{color:#b23a6a;}
+/* 工资模块「今日挣多少」 */
+.today-earn{margin-top:12px;border:1px solid #FFD0E0;border-radius:12px;overflow:hidden;background:#FFF6FA;}
+.today-earn.note{padding:12px;font-size:12px;color:#9a6b7d;background:#FFF0F6;}
+.today-earn-h{padding:9px 12px;font-size:13px;font-weight:600;color:#b23a6a;background:linear-gradient(135deg,#FFE3EE,#FFD0E0);}
+.today-earn-body{padding:4px 0;}
+.today-earn .dline{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 12px;font-size:12px;border-bottom:1px solid #FBE4EE;}
+.today-earn .dline:last-child{border-bottom:none;}
+.today-earn .dlabel{color:#8a6b76;flex:none;max-width:62%;}
+.today-earn .dval{color:#c0397a;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;}
