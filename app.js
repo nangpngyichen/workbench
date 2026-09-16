@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v82';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v83';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -908,13 +908,23 @@ function computeCommission(points,coef){
   const c3=b3/60*21*coef;
   return {c1,c2,c3,total:c1+c2+c3};
 }
-// 计算某月「分摊到每天」的天数基准：优先排班天数，其次工作量录入天数，最后退化为当月自然天数
+// 每月「排班工作天数」（不含休息/请假）：用于把固定工资平摊到每天
+// 用户确认：每月排班 23 个工作日；若某月已记录排班则按实际工作天数，否则默认 23
+const REST_SHIFTS=new Set(['休息','事假','病假','调休']);
+function getWorkDays(month){
+  const sched=load('schedule',{})[month]||{};
+  let n=0;
+  for(const d in sched){
+    if(d==='imgs')continue;
+    const sh=sched[d]&&sched[d].shift;
+    if(sh && !REST_SHIFTS.has(sh))n++;
+  }
+  return n;
+}
+// 固定工资分摊天数基准：排班工作日（不含休息/请假），未记录排班时默认 23 天
 function getDivisorDays(month){
-  const wst=getScheduleStats(month);const wd=wst.days;
-  if(wd>0)return wd;
-  const wlDays=load('workload',[]).filter(r=>r.date&&r.date.startsWith(month)).length;
-  if(wlDays>0)return wlDays;
-  return new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();
+  const wd=getWorkDays(month);
+  return wd>0? wd : 23;
 }
 // 某月每日工资信息（用于工作量每日记录）：固定组成平摊到每天 + 当日提成按积分占比分摊
 function dayWageInfo(month){
@@ -1029,7 +1039,7 @@ function bindSalary(){
       </div>
       <div class="line"><span>应发合计</span><b>${money(yf)}</b></div>
       <div class="line"><span>实发工资</span><b class="big">${money(sf)}</b></div>
-      <div class="line hl"><span>💰 每日固定工资（固定组成 ÷ ${divDays} 天，提成不摊）</span><b class="big">¥${money(dailyFixed)}/天</b></div>
+      <div class="line hl"><span>💰 每日固定工资（固定组成 ÷ 排班 ${divDays} 天，提成不摊）</span><b class="big">¥${money(dailyFixed)}/天</b></div>
       <div class="line sm"><span>提成逐日不同，按天算「今日挣多少钱（固定＋提成）」</span><b>见「每月工作量」每日记录</b></div>`;
     return {finalPerf,commission,yf,sf,dailyFixed,divDays,c1:com.c1,c2:com.c2,c3:com.c3};
   }
