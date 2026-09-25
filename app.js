@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v91';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v92';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -17,6 +17,8 @@ const APP_VER='v91';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首�
     else localStorage.setItem(k,APP_VER);
   }catch(e){}
 })();
+// 启动后静默迁移：把历史里已存的大图重新压小，腾出 localStorage 空间（仅跑一次）
+if(typeof document!=='undefined') document.addEventListener('DOMContentLoaded', recompressSavedImages);
 const $=(s,r)=> (r||document).querySelector(s);
 const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
 function load(key,def){
@@ -91,9 +93,84 @@ function asObj(x){ return (x&&typeof x==='object'&&!Array.isArray(x))?x:{}; }
   if(document.readyState==='complete' || document.readyState==='interactive') registerSW();
   else window.addEventListener('load', registerSW);
 })();
+// 把对象里图片的「高清原图 f」剥离，或整个图片数组清空，得到体积更小的副本（不改动原对象）
+function stripImgHeavy(obj, mode){
+  const isImgArr = a => Array.isArray(a) && a.length &&
+    a.every(x => x && typeof x==='object' && ('t' in x || 'f' in x));
+  const walk = v => {
+    if(Array.isArray(v)){
+      if(isImgArr(v)){
+        if(mode==='all') return [];
+        return v.map(x=>{ const c=Object.assign({},x); delete c.f; return c; });
+      }
+      return v.map(walk);
+    }
+    if(v && typeof v==='object'){
+      const o={};
+      for(const k in v){
+        if(k==='imgs' && Array.isArray(v[k])){
+          o[k] = mode==='all' ? [] : v[k].map(x=>Object.assign({},x, {f:undefined}));
+        } else o[k]=walk(v[k]);
+      }
+      return o;
+    }
+    return v;
+  };
+  return walk(obj);
+}
+// 配额自愈式保存：写入触发容量上限时，自动精简/剥离图片后重试，保证核心数据一定存进去
 function save(key,val){
-  try{ localStorage.setItem(PREFIX+key,JSON.stringify(val)); return true; }
-  catch(e){ toast('⚠️ 本地存储空间不足，本次数据可能未保存，请删除部分旧图片或记录后重试'); return false; }
+  const commit = v => { localStorage.setItem(PREFIX+key, JSON.stringify(v)); };
+  try{ commit(val); return true; }
+  catch(e){
+    try{ commit(stripImgHeavy(val,'full'));
+      toast('⚠️ 本地存储空间不足，已自动精简图片后保存（高清原图未保留，仅留缩略图）'); return true; }
+    catch(e2){
+      try{ commit(stripImgHeavy(val,'all'));
+        toast('⚠️ 本地存储空间不足，已仅保存文字数据，图片未能保存'); return true; }
+      catch(e3){ toast('⚠️ 本地存储空间严重不足，保存失败，请删除部分旧图片或记录后重试'); return false; }
+    }
+  }
+}
+// 启动后把历史里已存的大图重新压小（仅跑一次），腾出 localStorage 空间，避免反复触发精简
+function canvasDownscale(dataUrl,maxDim,quality,cb){
+  const img=new Image();
+  img.onload=()=>{
+    const {width,height}=img;
+    const scale=Math.min(1,maxDim/Math.max(width,height));
+    const w=Math.max(1,Math.round(width*scale)),h=Math.max(1,Math.round(height*scale));
+    const c=document.createElement('canvas');c.width=w;c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    try{ cb(c.toDataURL('image/jpeg',quality)); }catch(e){ cb(null); }
+  };
+  img.onerror=()=>cb(null);
+  img.src=dataUrl;
+}
+function recompressSavedImages(){
+  try{
+    if(localStorage.getItem(PREFIX+'imgmig')==='1')return;
+    localStorage.setItem(PREFIX+'imgmig','1'); // 先打标记，避免异常时反复重试
+    ['salary','workload','schedule'].forEach(k=>{
+      let obj; try{ obj=JSON.parse(localStorage.getItem(PREFIX+k)||'null'); }catch(e){ return; }
+      if(!obj||typeof obj!=='object')return;
+      const recs=Array.isArray(obj)?obj:Object.keys(obj).map(mk=>obj[mk]);
+      const list=[];
+      recs.forEach(rec=>{ if(rec&&Array.isArray(rec.imgs)) rec.imgs.forEach(im=>{ if(im&&typeof im==='object') list.push(im); }); });
+      if(!list.length)return;
+      let pending=list.length;
+      const finish=()=>{ if(--pending<=0){ try{ localStorage.setItem(PREFIX+k,JSON.stringify(obj)); }catch(e){} } };
+      list.forEach(im=>{
+        if(im.f && im.f.length>300000){
+          canvasDownscale(im.f,1400,0.82,newF=>{
+            if(newF)im.f=newF;
+            canvasDownscale(im.t||newF||im.f,700,0.72,newT=>{ if(newT)im.t=newT; finish(); });
+          });
+        } else if(im.t && im.t.length>150000){
+          canvasDownscale(im.t,700,0.72,newT=>{ if(newT)im.t=newT; finish(); });
+        } else finish();
+      });
+    });
+  }catch(e){}
 }
 function num(v){const n=parseFloat(v);return isNaN(n)?0:n;}
 function money(n){return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2);}
@@ -510,8 +587,8 @@ function bindWorkload(){
         if(thumb&&full)wlCurrentImgs.push({t:thumb,f:full});
         if(--pending===0){wlImgInput.value='';renderWlImgs();toast('图片已添加 📷');}
       };
-      fileToResizedDataURL(f,800,0.75,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
-      fileToResizedDataURL(f,3000,0.94,u=>{if(u)full=u;after();});   // 高清原图（放大清晰）
+      fileToResizedDataURL(f,700,0.72,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
+      fileToResizedDataURL(f,1400,0.82,u=>{if(u)full=u;after();});   // 高清原图（放大清晰，已压缩体积）
     });
   });
   const wlImgList=$('#wlImgList');
@@ -740,8 +817,8 @@ function bindSchedule(){
         if(thumb&&full)schCurrentImgs.push({t:thumb,f:full});
         if(--pending===0){imgInput.value='';renderSchImgs();saveSchImgs();renderSchList();toast('图片已添加 📷');}
       };
-      fileToResizedDataURL(f,800,0.75,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
-      fileToResizedDataURL(f,3000,0.94,u=>{if(u)full=u;after();});   // 高清原图（放大清晰）
+      fileToResizedDataURL(f,700,0.72,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
+      fileToResizedDataURL(f,1400,0.82,u=>{if(u)full=u;after();});   // 高清原图（放大清晰，已压缩体积）
     });
   });
   if(imgList)imgList.addEventListener('click',e=>{
@@ -1017,8 +1094,8 @@ function bindSalary(){
         if(thumb&&full)salCurrentImgs.push({t:thumb,f:full});
         if(--pending===0){imgInput.value='';renderSalImgs();toast('图片已添加 📷');}
       };
-      fileToResizedDataURL(f,800,0.75,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
-      fileToResizedDataURL(f,3000,0.94,u=>{if(u)full=u;after();});   // 高清原图（放大清晰）
+      fileToResizedDataURL(f,700,0.72,u=>{if(u)thumb=u;after();});    // 列表缩略图（轻量）
+      fileToResizedDataURL(f,1400,0.82,u=>{if(u)full=u;after();});   // 高清原图（放大清晰，已压缩体积）
     });
   });
   if(imgList)imgList.addEventListener('click',e=>{
