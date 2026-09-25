@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v89';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v90';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -174,7 +174,7 @@ function wrapByYear(records){
   const years=[...map.keys()].sort().reverse();
   return years.map(y=>{
     const body=map.get(y).map(r=>r.html).join('');
-    return mgroupHTML('📅 '+y+' 年', '共 '+map.get(y).length+' 项', body);
+    return mgroupHTML(y+' 年', '共 '+map.get(y).length+' 项', body);
   }).join('');
 }
 
@@ -1084,7 +1084,7 @@ function bindSalary(){
       imgs:[...salCurrentImgs]
     };
     const s=load('salary',{});s[month]=rec;save('salary',s);
-    toast('工资已保存 💕');renderSalaryList();
+    toast('工资已保存 💕');renderSalaryList();expandSalaryHistory();
   });
   calc();renderSalaryList();bindMonthGroupToggle('#salList');enableRecDetailToggle('#salList');
   const salListEl=$('#salList');
@@ -1160,7 +1160,15 @@ function renderSalaryList(){
   });
   box.innerHTML=wrapByYear(items);
 }
-
+// 保存工资后自动展开历史记录（历史默认按年分组折叠，避免用户以为“没保存/没显示”）
+function expandSalaryHistory(){
+  const box=$('#salList');if(!box)return;
+  $$('#salList .mgroup').forEach(g=>{
+    const b=g.querySelector('.mgroup-body');if(!b)return;
+    b.hidden=false;g.classList.add('open');
+    const ch=g.querySelector('.chev');if(ch)ch.textContent='▾';
+  });
+}
 /* =========================================================
    页面：工资分配
    ========================================================= */
