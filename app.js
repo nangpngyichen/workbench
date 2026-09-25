@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v90';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v91';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -92,8 +92,8 @@ function asObj(x){ return (x&&typeof x==='object'&&!Array.isArray(x))?x:{}; }
   else window.addEventListener('load', registerSW);
 })();
 function save(key,val){
-  try{ localStorage.setItem(PREFIX+key,JSON.stringify(val)); }
-  catch(e){ toast('⚠️ 本地存储空间不足，本次数据可能未保存，请删除部分旧图片或记录后重试'); }
+  try{ localStorage.setItem(PREFIX+key,JSON.stringify(val)); return true; }
+  catch(e){ toast('⚠️ 本地存储空间不足，本次数据可能未保存，请删除部分旧图片或记录后重试'); return false; }
 }
 function num(v){const n=parseFloat(v);return isNaN(n)?0:n;}
 function money(n){return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2);}
@@ -1075,16 +1075,30 @@ function bindSalary(){
     calc();toast('已恢复默认值并刷新三薪工资');
   });
   form.addEventListener('submit',e=>{
-    e.preventDefault();const r=calc();const month=$('#salMonth').value;
-    const rec={
-      base:num(form.base.value),triple:num(form.triple.value),perfBase:num(form.perfBase.value),coef:num(form.coef.value),
-      seniority:num(form.seniority.value),post:num(form.post.value),reward:num(form.reward.value),full:num(form.full.value),
-      deduct:num(form.deduct.value),ins:num(form.ins.value),tax:num(form.tax.value),
-      finalPerf:r.finalPerf,commission:r.commission,c1:r.c1,c2:r.c2,c3:r.c3,yf:r.yf,sf:r.sf,
-      imgs:[...salCurrentImgs]
-    };
-    const s=load('salary',{});s[month]=rec;save('salary',s);
+    e.preventDefault();
+    const month=$('#salMonth').value;
+    // 独立计算派生值，避免 calc() 任何异常阻断保存
+    const base=num(form.base.value),triple=num(form.triple.value);
+    const perfBase=num(form.perfBase.value),coef=Math.min(1,Math.max(0,num(form.coef.value)));
+    const seniority=num(form.seniority.value),post=num(form.post.value),reward=num(form.reward.value),full=num(form.full.value),deduct=num(form.deduct.value);
+    const ins=num(form.ins.value),tax=num(form.tax.value);
+    const finalPerf=perfBase*coef;
+    const points=getWorkloadMonthPoints(month);
+    const com=computeCommission(points,coef);
+    const commission=com.total;
+    const yf=base+triple+finalPerf+commission+seniority+post+reward+full-deduct;
+    const sf=yf-ins-tax;
+    const rec={base,triple,perfBase,coef,seniority,post,reward,full,deduct,ins,tax,
+      finalPerf,commission,c1:com.c1,c2:com.c2,c3:com.c3,yf,sf,imgs:[...salCurrentImgs]};
+    const s=load('salary',{});s[month]=rec;
+    if(!save('salary',s)){ return; }   // 保存失败（如空间不足）save 内部已提示，这里不再报“已保存”
+    try{ calc(); }catch(_){}
     toast('工资已保存 💕');renderSalaryList();expandSalaryHistory();
+    // 滚动到刚保存的月份并高亮，确保用户确认“已保存”
+    const box=$('#salList');
+    if(box){
+      $$('#salList .item').forEach(it=>{ if(it.textContent.indexOf(month)>=0){ try{it.scrollIntoView({behavior:'smooth',block:'center'});}catch(_){} it.classList.add('just-saved'); setTimeout(()=>it.classList.remove('just-saved'),2200); } });
+    }
   });
   calc();renderSalaryList();bindMonthGroupToggle('#salList');enableRecDetailToggle('#salList');
   const salListEl=$('#salList');
