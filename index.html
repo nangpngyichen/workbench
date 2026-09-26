@@ -19,51 +19,73 @@
   <script>
     // ===== 更新机制（不依赖 app.js 版本，确保旧版也能强制更新）=====
     (function () {
-      var PAGE_VER = 'v92';
+      var PAGE_VER = 'v93';
       var bar = document.getElementById('updBar');
       var btn = document.getElementById('updBtn');
       var skip = document.getElementById('updSkip');
       var verEl = document.getElementById('updVer');
+      var shown = false;
 
-      // 强制更新：注销所有 SW + 清空缓存 + 用 cache-bust URL 重新拉取
+      function showUpdate(ver) {
+        if (shown) return; shown = true;
+        if (ver) verEl.textContent = ver;
+        bar.hidden = false;
+      }
+      function hideUpdate() { bar.hidden = true; }
+
+      // 强制更新：注销所有 SW + 清空缓存 + 用干净 URL 重新加载（不带 fresh 参数，避免死循环）
       function doUpdate() {
+        var clean = location.pathname + location.hash;
         Promise.resolve()
           .then(function () { return navigator.serviceWorker ? navigator.serviceWorker.getRegistrations() : []; })
           .then(function (regs) { return Promise.all((regs || []).map(function (r) { return r.unregister(); })); })
           .then(function () { return window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : null; })
-          .then(function () { location.href = location.pathname + '?fresh=' + Date.now(); })
-          .catch(function () { location.href = location.pathname + '?fresh=' + Date.now(); });
+          .then(function () { location.replace(clean); })
+          .catch(function () { location.replace(clean); });
       }
       if (btn) btn.addEventListener('click', doUpdate);
-      if (skip) skip.addEventListener('click', function () { bar.hidden = true; });
+      if (skip) skip.addEventListener('click', function () { hideUpdate(); });
 
       // 注册 Service Worker（支持离线 / 添加到主屏幕，长期在手机使用）
+      var reg = null;
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('controllerchange', function () { location.reload(); });
         window.addEventListener('load', function () {
-          navigator.serviceWorker.register('sw.js').catch(function () {});
+          navigator.serviceWorker.register('sw.js').then(function (r) {
+            reg = r;
+            if (r.update) { try { r.update(); } catch (e) {} }   // 主动检查更新，绕过浏览器 24h 节流
+            if (r.waiting) showUpdate();
+          }).catch(function () {});
         });
-        // ?fresh=...：注销旧 SW + 清空所有缓存，强制拉取最新代码（自救入口，兼容 fresh=1 与 fresh=时间戳）
+        // ?fresh=...：注销旧 SW + 清空所有缓存，再用干净 URL 强制拉取最新代码（自救入口）
+        // 关键：重载前去掉 fresh 参数，否则会反复触发本分支导致死循环
         if (/[?&]fresh=/.test(location.search)) {
           navigator.serviceWorker.getRegistrations().then(function (regs) {
-            return Promise.all(regs.map(function (r) { return r.unregister(); }));
+            return Promise.all((regs || []).map(function (r) { return r.unregister(); }));
           }).then(function () {
             if (window.caches) return caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); });
-          }).then(function () { location.reload(true); });
+          }).then(function () {
+            location.replace(location.pathname + location.hash);
+          }).catch(function () {
+            location.replace(location.pathname + location.hash);
+          });
         }
       }
 
       // 轮询检测新版本：直接拉取 app.js（带 cache-bust），读取里面的 APP_VER
       // 不依赖 SW，确保旧版也能发现并提示更新
-      if (/[?&]fresh=/.test(location.search)) {
-        // 刚走完更新流程，本次不检测
-      } else {
-        setTimeout(function () {
-          fetch('app.js?_t=' + Date.now()).then(function (r) { return r.text(); }).then(function (t) {
-            var m = t.match(/APP_VER='(v\d+)'/);
-            if (m && m[1] && m[1] !== PAGE_VER) { verEl.textContent = m[1]; bar.hidden = false; }
-          }).catch(function () {});
-        }, 1500);
+      function checkVersion() {
+        if (shown) return;
+        fetch('app.js?_t=' + Date.now()).then(function (r) { return r.text(); }).then(function (t) {
+          var m = t.match(/APP_VER='(v\d+)'/);
+          if (m && m[1] && m[1] !== PAGE_VER) { showUpdate(m[1]); }
+        }).catch(function () {});
+      }
+      if (!/[?&]fresh=/.test(location.search)) {
+        setTimeout(checkVersion, 1500);
+        setInterval(checkVersion, 60000);                                  // 周期性检查
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) checkVersion(); }); // 切回前台即查
+        window.addEventListener('pageshow', checkVersion);
       }
     })();
   </script>
