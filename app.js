@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v93';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v94';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -1958,9 +1958,12 @@ function renderYihaoSummary(){
         <div class="yh-row yh-bal"><span>余额</span><b>¥${money(bal)}</b></div>
         <div class="yh-row yh-flow"><span>存入 ¥${money(sIn)}</span><span>取出 ¥${money(sOut)}</span></div>${key==='monthly'?(function(){
           const sub=depMonthlySub(arr);
-          return DEP_MONTHLY_SUBS.map(([sk,sn])=>{const t=sub[sk]||{in:0,out:0};
-            return `<div class="sum-sub"><span>· ${sn}</span><span>存入 ¥${money(t.in)} ｜ 取出 ¥${money(t.out)}</span></div>`;
-          }).join('');
+          let s='';
+          DEP_MONTHLY_SUBS.forEach(([sk,sn])=>{const t=sub[sk]||{b:0,in:0,out:0};
+            s+=`<div class="sum-sub"><span>· ${sn}</span><span><b style="color:#2BA471">余额 ¥${money(t.b)}</b> ｜ 存入 ¥${money(t.in)} ｜ 取出 ¥${money(t.out)}</span></div>`;
+          });
+          if(sub[''].in||sub[''].out){const t=sub[''];s+=`<div class="sum-sub other"><span>· 未分类</span><span><b style="color:#2BA471">余额 ¥${money(t.b)}</b> ｜ 存入 ¥${money(t.in)} ｜ 取出 ¥${money(t.out)}</span></div>`;}
+          return s;
         })():''}
       </div>
     </div>`;
