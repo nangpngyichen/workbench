@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v95';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v96';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -1379,18 +1379,18 @@ function renderAllocation(){
       ${AL_SAVE.map(function(l){
         if(l[0]==='monthly'){
           const mm=alSaveMonthly(rec);
-          return '<div class="field"><label>🐷 '+l[1]+'（同步到「我的存款·'+l[1]+'」'+wageMonth+' 计薪月 · 细分方式）</label>'
+          return '<div class="field"><label>🐷 '+l[1]+'（同步到「我的存款·'+l[1]+'」'+month+' 使用月 · 细分方式）</label>'
             +'<div class="al-save-sub">'
             +'<div class="field"><label>现金</label><input type="number" id="alSave_monthly_cash" step="any" value="'+(mm.cash||'')+'" placeholder="0"></div>'
             +'<div class="field"><label>支付宝</label><input type="number" id="alSave_monthly_alipay" step="any" value="'+(mm.alipay||'')+'" placeholder="0"></div>'
             +'</div></div>';
         }
-        return '<div class="field"><label>🐷 '+l[1]+'（同步到「我的存款·'+l[1]+'」'+wageMonth+' 计薪月）</label><input type="number" id="alSave_'+l[0]+'" step="any" value="'+((rec.save&&num(rec.save[l[0]]))||'')+'" placeholder="0"></div>';
+        return '<div class="field"><label>🐷 '+l[1]+'（同步到「我的存款·'+l[1]+'」'+month+' 使用月）</label><input type="number" id="alSave_'+l[0]+'" step="any" value="'+((rec.save&&num(rec.save[l[0]]))||'')+'" placeholder="0"></div>';
       }).join('')}
     </div>
     <button class="btn" type="button" id="alSaveAlloc">保存分配</button>
     <div id="alCheck"></div>
-    <p class="hint">💡 储蓄按上列四项分别记账到「我的存款」四个台账（存款 / 公积金 / 妈 / 鞋服预存），保存后会自动同步到对应台账的 ${wageMonth} 计薪月。每日支出请用上方日历点日期后「保存当日」。</p>
+    <p class="hint">💡 储蓄按上列四项分别记账到「我的存款」四个台账（存款 / 公积金 / 妈 / 鞋服预存），保存后会自动同步到对应台账的 ${month} 使用月（与工资分配同月），在「我的存款」日历的 1 号即可看到。每日支出请用上方日历点日期后「保存当日」。</p>
   </div>
   <div class="card">
     <h2>📜 每月分配历史</h2>
@@ -1469,7 +1469,7 @@ function bindAllocation(){
         }
       });
       r.save=saveObj; s[m]=r; save('allocation',s);
-      setAllocSavingToLedger(wm, saveObj);   // 存款/公积金/妈/鞋服预存 分别记到计薪月（钱是计薪月赚的）
+      setAllocSavingToLedger(m, saveObj);   // 存款/公积金/妈/鞋服预存 分别记到「使用月」（与工资分配同月，方便在存款日历直接看到）
       toast('分配已保存 💕'); check(); renderAllocationList();
     });
   }
@@ -1510,7 +1510,7 @@ function renderAllocationList(){
   $$('#alList .al-del').forEach(b=>b.addEventListener('click',()=>{
     if(confirm(`确定删除 ${b.dataset.month} 的工资分配记录吗？\n删除后不可恢复。`)){
       const ss=getAllocation();delete ss[b.dataset.month];save('allocation',ss);
-      setAllocSavingToLedger(shiftMonth(b.dataset.month,-1),{}); // 同步移除计薪月四个存款台账中的「储蓄(自动同步)」记录
+      setAllocSavingToLedger(b.dataset.month,{}); // 同步移除使用月四个存款台账中的「储蓄(自动同步)」记录
       toast('已删除 💕');renderAllocationList();
     }
   }));
@@ -1537,7 +1537,7 @@ function depMonthlySub(arr){
 // 仅统计存款台账中的「手动」存入（排除工资分配自动同步项），用于分配页默认值/防重复
 function ledgerMonthInManual(arr,month){return (arr||[]).filter(e=>e.type==='in'&&!e.src&&e.date&&e.date.startsWith(month)).reduce((s,e)=>s+num(e.amount),0);}
 // 把工资分配的储蓄（对象 {monthly,fund,mom,shoes}）分别同步写回「我的存款」四个台账
-// 每个台账按 (src:'alloc' + 计薪月) 唯一，重存会先清旧项，不会重复累加
+// 每个台账按 (src:'alloc' + 使用月) 唯一，重存会先清旧项，不会重复累加
 function setAllocSavingToLedger(month,saveObj){
   const d=load('deposits',{});
   DEP_LEDGERS.forEach(function(l){
@@ -1653,7 +1653,7 @@ function renderDepDayDetail(date){
   if(!all.length){box.innerHTML='';return;}
   all.sort((a,b)=>a.id.localeCompare(b.id));
   const html=all.map(e=>{
-    const tag=e.lname+(e.subname?('·'+e.subname):'');
+    const tag=e.lname+(e.subname?('·'+e.subname):'')+(e.src==='alloc'?' · 工资分配':'');
     return `<div class="day-rec"><span class="day-rec-tag">${tag}</span><span class="day-rec-amt ${e.type==='in'?'in':'out'}">${e.type==='in'?'+':'-'}¥${money(num(e.amount))}</span><button class="del" data-key="${e.lkey}" data-id="${e.id}">删除</button></div>`;
   }).join('');
   box.innerHTML=`<div class="day-rec-title">📅 ${date} 当日明细</div>`+html;
