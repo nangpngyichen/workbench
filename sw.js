@@ -6,9 +6,16 @@
    - 只缓存「成功(200)」的响应，绝不缓存错误页 / 空白页，避免手机端白屏。
    - 图标等静态资源：缓存优先（几乎不变，省流量），同样只缓存 200。
    - 缓存版本号：每次大改请 +1，强制旧缓存失效。 */
-const CACHE = 'workbench-v94';
+const CACHE = 'workbench-v95';
 // 相对路径：兼容 GitHub Pages 子路径（/workbench/）部署，避免预缓存 404
 const SHELL = ['./', './index.html', './app.js', './styles.css', './manifest.webmanifest'];
+// 核心文件识别：用「路径结尾」匹配，兼容 /workbench/app.js 这种子路径部署
+// （SHELL 用相对写法仅供预缓存；fetch 里必须用结尾匹配，否则 app.js/styles.css 会漏判成缓存优先而永远落后）
+const CORE_SUFFIX = ['/app.js', '/styles.css', '/index.html', '/manifest.webmanifest'];
+function isCorePath(path){
+  if (path === '/' || path.endsWith('/')) return true;
+  return CORE_SUFFIX.some(s => path.endsWith(s));
+}
 const ICONS = [
   './assets/icons/icon1.png',
   './assets/icons/icon2.png',
@@ -74,7 +81,7 @@ self.addEventListener('fetch', (e) => {
   }
 
   // 应用核心文件：网络优先（cache:'reload' 强制回源，保证拿到最新代码），失败再回退缓存
-  if (SHELL.includes(path)) {
+  if (isCorePath(path)) {
     e.respondWith(
       fetch(req, {cache:'reload'}).then((resp) => {
         caches.open(CACHE).then((c) => cachePut(c, req, resp));
