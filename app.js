@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v96';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v97';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -1390,7 +1390,7 @@ function renderAllocation(){
     </div>
     <button class="btn" type="button" id="alSaveAlloc">保存分配</button>
     <div id="alCheck"></div>
-    <p class="hint">💡 储蓄按上列四项分别记账到「我的存款」四个台账（存款 / 公积金 / 妈 / 鞋服预存），保存后会自动同步到对应台账的 ${month} 使用月（与工资分配同月），在「我的存款」日历的 1 号即可看到。每日支出请用上方日历点日期后「保存当日」。</p>
+    <p class="hint">💡 储蓄按上列四项分别记账到「我的存款」四个台账（存款 / 公积金 / 妈 / 鞋服预存），保存后会自动同步到对应台账，并在「我的存款」日历的【当天】（即你在此操作分配的那一天）显示存入金额，与工资分配日历的日期保持一致。每日支出请用上方日历点日期后「保存当日」。</p>
   </div>
   <div class="card">
     <h2>📜 每月分配历史</h2>
@@ -1469,7 +1469,7 @@ function bindAllocation(){
         }
       });
       r.save=saveObj; s[m]=r; save('allocation',s);
-      setAllocSavingToLedger(m, saveObj);   // 存款/公积金/妈/鞋服预存 分别记到「使用月」（与工资分配同月，方便在存款日历直接看到）
+      setAllocSavingToLedger(m, saveObj, alSelDate||ymd());   // 存款/公积金/妈/鞋服预存 分别记到「操作当天」，与分配日历日期同步
       toast('分配已保存 💕'); check(); renderAllocationList();
     });
   }
@@ -1537,9 +1537,10 @@ function depMonthlySub(arr){
 // 仅统计存款台账中的「手动」存入（排除工资分配自动同步项），用于分配页默认值/防重复
 function ledgerMonthInManual(arr,month){return (arr||[]).filter(e=>e.type==='in'&&!e.src&&e.date&&e.date.startsWith(month)).reduce((s,e)=>s+num(e.amount),0);}
 // 把工资分配的储蓄（对象 {monthly,fund,mom,shoes}）分别同步写回「我的存款」四个台账
-// 每个台账按 (src:'alloc' + 使用月) 唯一，重存会先清旧项，不会重复累加
-function setAllocSavingToLedger(month,saveObj){
+// 写入日期 = 用户操作分配的当天（day，选中日期优先，否则当天）；重存会先清同月旧项，不会重复累加
+function setAllocSavingToLedger(month,saveObj,day){
   const d=load('deposits',{});
+  const opDay=day||(month+'-01');
   DEP_LEDGERS.forEach(function(l){
     const key=l[0];
     d[key]=asArr(d[key]);
@@ -1549,11 +1550,11 @@ function setAllocSavingToLedger(month,saveObj){
       const ms=saveObj?saveObj.monthly:0;
       let cash=0,alipay=0;
       if(ms&&typeof ms==='object'){cash=num(ms.cash);alipay=num(ms.alipay);} else {cash=num(ms);}
-      if(cash>0) d[key].push({id:uid(),date:month+'-01',type:'in',amount:cash,note:'工资分配·储蓄(自动同步)',src:'alloc',sub:'cash'});
-      if(alipay>0) d[key].push({id:uid(),date:month+'-01',type:'in',amount:alipay,note:'工资分配·储蓄(自动同步)',src:'alloc',sub:'alipay'});
+      if(cash>0) d[key].push({id:uid(),date:opDay,type:'in',amount:cash,note:'工资分配·储蓄(自动同步)',src:'alloc',sub:'cash'});
+      if(alipay>0) d[key].push({id:uid(),date:opDay,type:'in',amount:alipay,note:'工资分配·储蓄(自动同步)',src:'alloc',sub:'alipay'});
     } else {
       const amt=num(saveObj?saveObj[key]:0);
-      if(amt>0) d[key].push({id:uid(),date:month+'-01',type:'in',amount:amt,note:'工资分配·储蓄(自动同步)',src:'alloc'});
+      if(amt>0) d[key].push({id:uid(),date:opDay,type:'in',amount:amt,note:'工资分配·储蓄(自动同步)',src:'alloc'});
     }
   });
   save('deposits',d);
