@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v97';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v98';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -724,8 +724,8 @@ function updateWlMonth(){
 /* =========================================================
    页面：每月排班
    ========================================================= */
-const SHIFTS=['早班','中班','晚班','休息','事假','病假','调休','法定三薪日'];
-const SHIFT_COLOR={'早班':'#BFE3FF','中班':'#FFE3B8','晚班':'#C9BCFF','休息':'#E6E6EA','事假':'#FFD2D2','病假':'#FFC7C7','调休':'#D8F0C4','法定三薪日':'#FFD98A'};
+const SHIFTS=['早班','中班','晚班','休息','事假','病假','调休','年假','法定三薪日'];
+const SHIFT_COLOR={'早班':'#BFE3FF','中班':'#FFE3B8','晚班':'#C9BCFF','休息':'#E6E6EA','事假':'#FFD2D2','病假':'#FFC7C7','调休':'#D8F0C4','年假':'#C7ECDD','法定三薪日':'#FFD98A'};
 function renderSchedule(){
   const selMonth=(currentPage==='schedule'&&$('#schMonth'))?$('#schMonth').value:null;
   const month=selMonth||ym(new Date());
@@ -984,7 +984,7 @@ function computeCommission(points,coef){
 }
 // 每月「排班工作天数」（不含休息/请假）：用于把固定工资平摊到每天
 // 用户确认：每月排班 23 个工作日；若某月已记录排班则按实际工作天数，否则默认 23
-const REST_SHIFTS=new Set(['休息','事假','病假','调休']);
+const REST_SHIFTS=new Set(['休息','事假','病假','调休','年假']);
 function getWorkDays(month){
   const sched=load('schedule',{})[month]||{};
   let n=0;
