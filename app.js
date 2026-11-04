@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v99';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v100';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -1278,9 +1278,9 @@ function alMonthExpense(rec){
 }
 function alMonthExpenseSum(rec){ const m=alMonthExpense(rec); return AL_EXPENSE.reduce(function(s,e){return s+num(m[e[0]]);},0); }
 // 储蓄合计：rec.save 为对象 {monthly,fund,mom,shoes}，其中 monthly 可为数字或 {cash,alipay} 细分；无则按 0 计
-function alSaveMonthly(rec){ const sv=rec&&rec.save&&typeof rec.save==='object'?rec.save:{}; const m=sv.monthly; if(m&&typeof m==='object')return {cash:num(m.cash),alipay:num(m.alipay)}; return {cash:num(m),alipay:0}; }
-function alSaveVal(rec,key){ if(key!=='monthly'){const sv=rec&&rec.save&&typeof rec.save==='object'?rec.save:{};return num(sv[key]);} const mm=alSaveMonthly(rec); return mm.cash+mm.alipay; }
-function alSaveTotal(rec){ const sv=rec&&rec.save&&typeof rec.save==='object'?rec.save:{}; let s=0; AL_SAVE.forEach(function(l){ if(l[0]==='monthly'){const mm=alSaveMonthly(rec);s+=mm.cash+mm.alipay;} else s+=num(sv[l[0]]); }); return s; }
+function alSaveMonthly(rec){ const sv=rec&&rec.save&&typeof rec.save==='object'?rec.save:{}; const m=sv.monthly; if(m&&typeof m==='object')return {cash:num(m.cash),alipay:num(m.alipay),fixed:num(m.fixed)}; return {cash:num(m),alipay:0,fixed:0}; }
+function alSaveVal(rec,key){ if(key!=='monthly'){const sv=rec&&rec.save&&typeof rec.save==='object'?rec.save:{};return num(sv[key]);} const mm=alSaveMonthly(rec); return mm.cash+mm.alipay+mm.fixed; }
+function alSaveTotal(rec){ const sv=rec&&rec.save&&typeof rec.save==='object'?rec.save:{}; let s=0; AL_SAVE.forEach(function(l){ if(l[0]==='monthly'){const mm=alSaveMonthly(rec);s+=mm.cash+mm.alipay+mm.fixed;} else s+=num(sv[l[0]]); }); return s; }
 function alDayGet(rec,date){ return (rec&&rec.days&&rec.days[date])?rec.days[date]:{}; }
 let alViewMonth=null;
 let alSelDate=null;
@@ -1383,6 +1383,7 @@ function renderAllocation(){
             +'<div class="al-save-sub">'
             +'<div class="field"><label>现金</label><input type="number" id="alSave_monthly_cash" step="any" value="'+(mm.cash||'')+'" placeholder="0"></div>'
             +'<div class="field"><label>支付宝</label><input type="number" id="alSave_monthly_alipay" step="any" value="'+(mm.alipay||'')+'" placeholder="0"></div>'
+            +'<div class="field"><label>定期存款</label><input type="number" id="alSave_monthly_fixed" step="any" value="'+(mm.fixed||'')+'" placeholder="0"></div>'
             +'</div></div>';
         }
         return '<div class="field"><label>🐷 '+l[1]+'（同步到「我的存款·'+l[1]+'」'+month+' 使用月）</label><input type="number" id="alSave_'+l[0]+'" step="any" value="'+((rec.save&&num(rec.save[l[0]]))||'')+'" placeholder="0"></div>';
@@ -1405,7 +1406,7 @@ function bindAllocation(){
   function curSaveTotal(){
     let s=0; AL_SAVE.forEach(function(l){
       const key=l[0];
-      if(key==='monthly'){ const c=$('#alSave_monthly_cash'), a=$('#alSave_monthly_alipay'); s+=num(c?c.value:0)+num(a?a.value:0); }
+      if(key==='monthly'){ const c=$('#alSave_monthly_cash'), a=$('#alSave_monthly_alipay'), f=$('#alSave_monthly_fixed'); s+=num(c?c.value:0)+num(a?a.value:0)+num(f?f.value:0); }
       else { const el=$('#alSave_'+key); s+=num(el?el.value:0); }
     }); return s;
   }
@@ -1451,7 +1452,7 @@ function bindAllocation(){
   const sb=$('#alSaveAlloc');
   if(sb){
     AL_SAVE.forEach(function(l){
-      if(l[0]==='monthly'){ ['cash','alipay'].forEach(function(sub){ const el=$('#alSave_monthly_'+sub); if(el)el.addEventListener('input',check); }); }
+      if(l[0]==='monthly'){ ['cash','alipay','fixed'].forEach(function(sub){ const el=$('#alSave_monthly_'+sub); if(el)el.addEventListener('input',check); }); }
       else { const el=$('#alSave_'+l[0]); if(el)el.addEventListener('input',check); }
     });
     sb.addEventListener('click',function(){
@@ -1461,9 +1462,9 @@ function bindAllocation(){
       AL_SAVE.forEach(function(l){
         const key=l[0];
         if(key==='monthly'){
-          const c=$('#alSave_monthly_cash'), a=$('#alSave_monthly_alipay');
-          const cash=num(c?c.value:0), alipay=num(a?a.value:0);
-          saveObj.monthly=(cash>0||alipay>0)?{cash:cash,alipay:alipay}:0;
+          const c=$('#alSave_monthly_cash'), a=$('#alSave_monthly_alipay'), f=$('#alSave_monthly_fixed');
+          const cash=num(c?c.value:0), alipay=num(a?a.value:0), fixed=num(f?f.value:0);
+          saveObj.monthly=(cash>0||alipay>0||fixed>0)?{cash:cash,alipay:alipay,fixed:fixed}:0;
         } else {
           const el=$('#alSave_'+key); saveObj[key]=num(el?el.value:0);
         }
@@ -1546,12 +1547,13 @@ function setAllocSavingToLedger(month,saveObj,day){
     d[key]=asArr(d[key]);
     d[key]=d[key].filter(e=>!(e.src==='alloc'&&e.date&&e.date.startsWith(month)));
     if(key==='monthly'){
-      // 存款储蓄按「现金 / 支付宝」细分同步，分别记账，便于「我的存款」按方式拆分展示
+      // 存款储蓄按「现金 / 支付宝 / 定期存款」细分同步，分别记账，便于「我的存款」按方式拆分展示
       const ms=saveObj?saveObj.monthly:0;
-      let cash=0,alipay=0;
-      if(ms&&typeof ms==='object'){cash=num(ms.cash);alipay=num(ms.alipay);} else {cash=num(ms);}
+      let cash=0,alipay=0,fixed=0;
+      if(ms&&typeof ms==='object'){cash=num(ms.cash);alipay=num(ms.alipay);fixed=num(ms.fixed);} else {cash=num(ms);}
       if(cash>0) d[key].push({id:uid(),date:opDay,type:'in',amount:cash,note:'工资分配·储蓄(自动同步)',src:'alloc',sub:'cash'});
       if(alipay>0) d[key].push({id:uid(),date:opDay,type:'in',amount:alipay,note:'工资分配·储蓄(自动同步)',src:'alloc',sub:'alipay'});
+      if(fixed>0) d[key].push({id:uid(),date:opDay,type:'in',amount:fixed,note:'工资分配·储蓄(自动同步)',src:'alloc',sub:'fixed'});
     } else {
       const amt=num(saveObj?saveObj[key]:0);
       if(amt>0) d[key].push({id:uid(),date:opDay,type:'in',amount:amt,note:'工资分配·储蓄(自动同步)',src:'alloc'});
