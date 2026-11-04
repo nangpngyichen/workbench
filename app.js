@@ -7,7 +7,7 @@
 
 /* ---------- 基础工具 ---------- */
 const PREFIX='wb_';
-const APP_VER='v98';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
+const APP_VER='v99';  // 与 sw.js 的 CACHE 版本保持同步，仅用于首页展示当前代码版本
 // 版本号变化自动刷新一次：当本地记录的仍是旧版本号时，强制重载确保无残留旧逻辑
 // （配合 index.html 里的 controllerchange 自动刷新，根治 iOS「添加到主屏幕」后卡旧版的问题）
 (function(){
@@ -1521,7 +1521,7 @@ function renderAllocationList(){
    ========================================================= */
 const DEP_LEDGERS=[['monthly','存款'],['fund','公积金'],['mom','妈'],['shoes','鞋服预存']];
 // 每月存款台账细分为「现金 / 支付宝」两个子账户
-const DEP_MONTHLY_SUBS=[['cash','现金'],['alipay','支付宝']];
+const DEP_MONTHLY_SUBS=[['cash','现金'],['alipay','支付宝'],['fixed','定期存款']];
 const depCal={m:ym(new Date()),sel:ymd()};   // 合并后的单一日历状态（月份+选中日期）
 const goldCal={month:ym(new Date()),sel:ymd()}; // 黄金录入日历状态
 function ledgerBalance(arr){return (arr||[]).reduce((s,e)=>s+(e.type==='in'?num(e.amount):-num(e.amount)),0);}
@@ -1530,7 +1530,7 @@ function ledgerTotalIn(arr){return (arr||[]).filter(e=>e.type==='in').reduce((s,
 function ledgerTotalOut(arr){return (arr||[]).filter(e=>e.type==='out').reduce((s,e)=>s+num(e.amount),0);}
 // 每月存款台账按「现金 / 支付宝」细分的余额与收支（无 sub 的旧记录归入「未分类」）
 function depMonthlySub(arr){
-  const m={'cash':{b:0,in:0,out:0},'alipay':{b:0,in:0,out:0},'':{b:0,in:0,out:0}};
+  const m={'cash':{b:0,in:0,out:0},'alipay':{b:0,in:0,out:0},'fixed':{b:0,in:0,out:0},'':{b:0,in:0,out:0}};
   (arr||[]).forEach(e=>{const s=(e.sub&&m[e.sub])?e.sub:''; if(e.type==='in'){m[s].in+=num(e.amount);m[s].b+=num(e.amount);}else{m[s].out+=num(e.amount);m[s].b-=num(e.amount);}});
   return m;
 }
@@ -1752,7 +1752,7 @@ function renderDepositList(){
       const v=per[key];
       if(key==='monthly'){
         // 每月存款细分为「现金 / 支付宝」，并兼容无 sub 的旧记录（归入未分类）
-        const sub={cash:{in:0,out:0},alipay:{in:0,out:0},'':{in:0,out:0}};
+        const sub={cash:{in:0,out:0},alipay:{in:0,out:0},fixed:{in:0,out:0},'':{in:0,out:0}};
         g.items.filter(e=>e.lkey==='monthly').forEach(e=>{const s=(e.sub&&sub[e.sub])?e.sub:'';if(e.type==='in')sub[s].in+=num(e.amount);else sub[s].out+=num(e.amount);});
         let rows=`<div class="sum-row"><span>${name}</span><span>存入 <b style="color:#2BA471">¥${money(v.in)}</b> ｜ 取出 <b style="color:#E86A92">¥${money(v.out)}</b></span></div>`;
         DEP_MONTHLY_SUBS.forEach(([sk,sn])=>{const t=sub[sk];rows+=`<div class="sum-sub"><span>${sn}</span><span>存入 ¥${money(t.in)} ｜ 取出 ¥${money(t.out)}</span></div>`;});
@@ -2075,7 +2075,7 @@ function renderYihaoList(){
     let sumBlock=`<div class="month-sum">`;
     // 每月存款台账：现金 / 支付宝细分
     if(monthly.length){
-      const sub={cash:{in:0,out:0},alipay:{in:0,out:0},'':{in:0,out:0}};
+      const sub={cash:{in:0,out:0},alipay:{in:0,out:0},fixed:{in:0,out:0},'':{in:0,out:0}};
       monthly.forEach(e=>{const s=(e.sub&&sub[e.sub])?e.sub:'';if(e.type==='in')sub[s].in+=num(e.amount);else sub[s].out+=num(e.amount);});
       const mIn=monthly.filter(e=>e.type==='in').reduce((s,e)=>s+num(e.amount),0);
       const mOut=monthly.filter(e=>e.type==='out').reduce((s,e)=>s+num(e.amount),0);
